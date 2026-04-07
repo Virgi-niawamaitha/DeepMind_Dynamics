@@ -7,7 +7,7 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h4 class="mb-0">Create New Forum Post</h4>
+                    <h4 class="mb-0" data-i18n="create_post.title">Create New Forum Post</h4>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data">
@@ -18,9 +18,7 @@
                             {{ form.title(class="form-control") }}
                             {% if form.title.errors %}
                                 <div class="invalid-feedback">
-                                    {% for error in form.title.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
+                                    {% for error in form.title.errors %}<span>{{ error }}</span>{% endfor %}
                                 </div>
                             {% endif %}
                         </div>
@@ -30,9 +28,7 @@
                             {{ form.content(class="form-control", rows=5) }}
                             {% if form.content.errors %}
                                 <div class="invalid-feedback">
-                                    {% for error in form.content.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
+                                    {% for error in form.content.errors %}<span>{{ error }}</span>{% endfor %}
                                 </div>
                             {% endif %}
                         </div>
@@ -43,9 +39,7 @@
                                 {{ form.disease(class="form-select") }}
                                 {% if form.disease.errors %}
                                     <div class="invalid-feedback">
-                                        {% for error in form.disease.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
+                                        {% for error in form.disease.errors %}<span>{{ error }}</span>{% endfor %}
                                     </div>
                                 {% endif %}
                             </div>
@@ -55,9 +49,7 @@
                                 {{ form.county(class="form-select") }}
                                 {% if form.county.errors %}
                                     <div class="invalid-feedback">
-                                        {% for error in form.county.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
+                                        {% for error in form.county.errors %}<span>{{ error }}</span>{% endfor %}
                                     </div>
                                 {% endif %}
                             </div>
@@ -65,11 +57,9 @@
 
                         <div class="mb-3">
                             <button type="submit" class="btn btn-success">
-                                <i class="bi bi-send"></i> Post Discussion
+                                <i class="bi bi-send"></i> <span data-i18n="create_post.post_btn">Post Discussion</span>
                             </button>
-                            <a href="{{ url_for('forum') }}" class="btn btn-outline-secondary">
-                                Cancel
-                            </a>
+                            <a href="{{ url_for('forum') }}" class="btn btn-outline-secondary" data-i18n="create_post.cancel">Cancel</a>
                         </div>
                     </form>
                 </div>
