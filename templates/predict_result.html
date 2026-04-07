@@ -7,7 +7,7 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h3 class="mb-0">Prediction Results for {{ plant_type }}</h3>
+                    <h3 class="mb-0">{{ 'Matokeo ya Utabiri kwa' if lang == 'sw' else 'Prediction Results for' }} {{ plant_type }}</h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -50,19 +50,19 @@
 
                         <div class="col-md-6">
                             <div class="diagnosis-info">
-                                <h4>Diagnosis</h4>
-                                <p><strong>Disease:</strong> {{ disease_name }}</p>
-                                <p><strong>Scientific Name:</strong> {{ scientific_name }}</p>
+                                <h4>{{ 'Utambuzi' if lang == 'sw' else 'Diagnosis' }}</h4>
+                                <p><strong>{{ 'Ugonjwa:' if lang == 'sw' else 'Disease:' }}</strong> {{ disease_name }}</p>
+                                <p><strong>{{ 'Jina la Kisayansi:' if lang == 'sw' else 'Scientific Name:' }}</strong> {{ scientific_name }}</p>
                             </div>
 
                             <div class="treatment-info">
-                                <h4>Recommended Treatment</h4>
+                                <h4>{{ 'Matibabu Yanayopendekezwa' if lang == 'sw' else 'Recommended Treatment' }}</h4>
                                 <p>{{ treatment }}</p>
                             </div>
 
                             {% if agrovet_medications %}
                             <div class="agrovet-info">
-                                <h4><i class="bi bi-capsule"></i> Agrovet Medication Prescription</h4>
+                                <h4><i class="bi bi-capsule"></i> {{ 'Dawa za Agrovet Zilizopendekezwa' if lang == 'sw' else 'Agrovet Medication Prescription' }}</h4>
                                 <ul class="list-group list-group-flush">
                                     {% for med in agrovet_medications %}
                                     <li class="list-group-item px-0">
@@ -74,21 +74,21 @@
                             {% endif %}
 
                             <div class="phytomedicine-info">
-                                <h4>Natural Remedies</h4>
+                                <h4>{{ 'Tiba za Asili' if lang == 'sw' else 'Natural Remedies' }}</h4>
                                 <p>{{ phytomedicine }}</p>
                             </div>
 
                             <div class="prevention-info">
-                                <h4>Prevention Methods</h4>
+                                <h4>{{ 'Njia za Kuzuia' if lang == 'sw' else 'Prevention Methods' }}</h4>
                                 <p>{{ prevention }}</p>
                             </div>
 
                             <!-- Compact Prevention Calendar Section -->
                             <div class="prevention-calendar mt-4">
-                                <h4><i class="bi bi-calendar-check"></i> Prevention Schedule</h4>
+                                <h4><i class="bi bi-calendar-check"></i> {{ 'Ratiba ya Kuzuia' if lang == 'sw' else 'Prevention Schedule' }}</h4>
                                 <div id="compact-calendar"></div>
                                 <button class="btn btn-sm btn-outline-success mt-2" id="export-calendar">
-                                    <i class="bi bi-google"></i> Export to Google Calendar
+                                    <i class="bi bi-google"></i> {{ 'Hamisha kwenye Kalenda ya Google' if lang == 'sw' else 'Export to Google Calendar' }}
                                 </button>
                             </div>
                         </div>
@@ -189,10 +189,10 @@
         <div class="col-md-12">
             <div class="action-buttons">
                 <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    <i class="bi bi-arrow-left"></i> {{ 'Rudi Dashibodini' if lang == 'sw' else 'Back to Dashboard' }}
                 </a>
                 <a href="{{ url_for('select_plant') }}" class="btn btn-success">
-                    <i class="bi bi-plus-circle"></i> New Prediction
+                    <i class="bi bi-plus-circle"></i> {{ 'Utabiri Mpya' if lang == 'sw' else 'New Prediction' }}
                 </a>
             </div>
         </div>

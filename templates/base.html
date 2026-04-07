@@ -104,6 +104,17 @@
                     </li>
                 </ul>
 
+                <!-- Language switcher -->
+                <ul class="navbar-nav me-2">
+                    <li class="nav-item d-flex align-items-center">
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('set_lang', lang='en') }}"
+                               class="btn btn-sm fw-bold {{ 'btn-light' if lang == 'en' else 'btn-outline-light' }}">EN</a>
+                            <a href="{{ url_for('set_lang', lang='sw') }}"
+                               class="btn btn-sm fw-bold {{ 'btn-light' if lang == 'sw' else 'btn-outline-light' }}">SW</a>
+                        </div>
+                    </li>
+                </ul>
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">

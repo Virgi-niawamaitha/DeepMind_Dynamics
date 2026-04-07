@@ -587,7 +587,211 @@ disease_info = {
     }
 }
 
+# ── Swahili translations for disease content ─────────────────────────────────
+disease_info_sw = {
+    'Apple___Apple_scab': {
+        'treatment': 'Piga dawa ya shaba au salfa. Kata matawi yaliyoathirika na angamiza majani yaliyoanguka.',
+        'phytomedicine': 'Dawa ya mafuta ya neem (Azadirachta indica) kila siku 10',
+        'prevention': 'Panda aina zinazostahimili ugonjwa, weka nafasi kati ya miti, ondoa takataka za mmea'
+    },
+    'Apple___Black_rot': {
+        'treatment': 'Ondoa matunda yaliyokauka na matawi yaliyoathirika. Piga dawa ya captan.',
+        'phytomedicine': 'Dawa ya vitunguu (Allium sativum) na pilipili iliyosagwa',
+        'prevention': 'Epuka kuumiza mti, safisha bustani vizuri mara kwa mara'
+    },
+    'Apple___Cedar_apple_rust': {
+        'treatment': 'Piga dawa mapema majira ya masika. Kata mimea ya juniper iliyo karibu.',
+        'phytomedicine': 'Mchanganyiko wa soda ya kuoka (kijiko 1 kwa lita) na mafuta ya kilimo',
+        'prevention': 'Panda aina zinazostahimili, ondoa mimea mbadala ndani ya kilomita 2'
+    },
+    'Apple___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Piga dawa ya kinga ya mafuta ya neem kila wiki 2',
+        'prevention': 'Dumisha lishe na umwagiliaji sahihi, kata matawi mara kwa mara'
+    },
+    'Blueberry___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Dawa ya jani la aloe vera kama mbolea ya majani',
+        'prevention': 'Dumisha tindikali ya udongo (pH 4.0-5.0), mulch sahihi'
+    },
+    'Cherry_(including_sour)___Powdery_mildew': {
+        'treatment': 'Piga dawa ya salfa au potasiamu bicarbonate',
+        'phytomedicine': 'Dawa ya maziwa (sehemu 1 maziwa kwa sehemu 9 maji) kila wiki',
+        'prevention': 'Boresha mzunguko wa hewa, epuka umwagiliaji wa juu'
+    },
+    'Cherry_(including_sour)___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Chai ya mboji kama mbolea ya udongo kila mwezi',
+        'prevention': 'Kata matawi mara kwa mara, mbolea ya kusawazisha'
+    },
+    'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot': {
+        'treatment': 'Piga dawa yenye azoxystrobin au propiconazole',
+        'phytomedicine': 'Dawa ya mmea wa nettle uliochanganywa kwa uchachushaji (Urtica dioica)',
+        'prevention': 'Pinda mazao, aina zinazostahimili, nafasi sahihi kati ya mimea'
+    },
+    'Corn_(maize)___Common_rust_': {
+        'treatment': 'Piga dawa ya triazole wakati ugonjwa unaanza',
+        'phytomedicine': 'Dawa ya majani ya Lantana camara iliyonyunyiziwa',
+        'prevention': 'Panda mapema, aina zinazostahimili, mbolea ya kusawazisha'
+    },
+    'Corn_(maize)___Northern_Leaf_Blight': {
+        'treatment': 'Piga dawa ya chlorothalonil au mancozeb',
+        'phytomedicine': 'Dawa ya majani ya Tithonia diversifolia (maua ya Meksiko)',
+        'prevention': 'Pinda mazao, lima udongo kuzika mabaki ya mazao'
+    },
+    'Corn_(maize)___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Dawa za mmea zilizochachushwa kwa afya ya udongo',
+        'prevention': 'Nafasi sahihi, palilia kwa wakati, pinda mazao'
+    },
+    'Grape___Black_rot': {
+        'treatment': 'Piga dawa mapema msimu, ondoa nyenzo zilizoathirika',
+        'phytomedicine': 'Dawa ya majani ya papai iliyochachushwa',
+        'prevention': 'Kata matawi, simamia msitu, ondoa matunda yaliyokauka'
+    },
+    'Grape___Esca_(Black_Measles)': {
+        'treatment': 'Kata miti iliyoathirika, hakuna dawa nzuri ya kemikali',
+        'phytomedicine': 'Dawa ya vitunguu na tangawizi',
+        'prevention': 'Epuka kuumiza mti wakati wa kukata, tumia zana safi'
+    },
+    'Grape___Leaf_blight_(Isariopsis_Leaf_Spot)': {
+        'treatment': 'Piga dawa ya shaba wakati wa mvua',
+        'phytomedicine': 'Dawa ya majani ya Ocimum gratissimum (mnanaa wa Afrika)',
+        'prevention': 'Boresha mzunguko wa hewa, epuka umwagiliaji wa juu'
+    },
+    'Grape___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Dawa ya mwani baharini kama mbolea ya majani',
+        'prevention': 'Weka msalaba sahihi, lishe ya kusawazisha'
+    },
+    'Orange___Haunglongbing_(Citrus_greening)': {
+        'treatment': 'Ondoa miti iliyoathirika, dhibiti wadudu wa psyllid',
+        'phytomedicine': 'Mafuta ya neem kudhibiti psyllid',
+        'prevention': 'Panda miche isiyoathirika, fuatilia wadudu'
+    },
+    'Peach___Bacterial_spot': {
+        'treatment': 'Piga dawa ya shaba wakati wa usingizi wa mmea, streptomycin wakati wa kukua',
+        'phytomedicine': 'Dawa ya chai ya mkia wa farasi (Equisetum arvense)',
+        'prevention': 'Panda aina zinazostahimili, epuka umwagiliaji wa juu'
+    },
+    'Peach___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Chai ya majani ya comfrey kama mbolea ya majani',
+        'prevention': 'Kata matawi sahihi, mbolea ya kusawazisha'
+    },
+    'Pepper,_bell___Bacterial_spot': {
+        'treatment': 'Piga dawa ya bakteria ya shaba, epuka kufanya kazi na mimea yenye unyevu',
+        'phytomedicine': 'Dawa ya maua ya African marigold (Tagetes minuta) iliyochachushwa',
+        'prevention': 'Tumia mbegu zisizokuwa na ugonjwa, pinda mazao'
+    },
+    'Pepper,_bell___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Gel ya aloe vera iliyochanganywa na maji kama mbolea ya majani',
+        'prevention': 'Nafasi sahihi, mulch, umwagiliaji wa matone'
+    },
+    'Potato___Early_blight': {
+        'treatment': 'Piga dawa ya chlorothalonil au mancozeb',
+        'phytomedicine': 'Dawa ya mmea wa nettle uliyochachushwa',
+        'prevention': 'Pinda mazao, mbolea sahihi, ondoa mabaki ya mazao'
+    },
+    'Potato___Late_blight': {
+        'treatment': 'Piga dawa ya metalaxyl au chlorothalonil, angamiza mimea iliyoathirika sana',
+        'phytomedicine': 'Dawa ya chai ya mkia wa farasi kila siku 5',
+        'prevention': 'Panda aina zinazostahimili, epuka umwagiliaji wa juu'
+    },
+    'Potato___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Chai ya mboji kama mbolea ya udongo',
+        'prevention': 'Tunza vizuri, pinda mazao'
+    },
+    'Raspberry___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Dawa ya ngozi ya ndizi iliyochachushwa',
+        'prevention': 'Weka msalaba sahihi, kata matawi mara kwa mara'
+    },
+    'Soybean___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Vimelea vya Rhizobium kwa kurekebisha nitrojeni',
+        'prevention': 'Nafasi sahihi, pinda mazao'
+    },
+    'Squash___Powdery_mildew': {
+        'treatment': 'Piga dawa ya salfa au potasiamu bicarbonate',
+        'phytomedicine': 'Dawa ya maziwa (uwiano 1:9 na maji) kila wiki',
+        'prevention': 'Aina zinazostahimili, nafasi sahihi'
+    },
+    'Strawberry___Leaf_scorch': {
+        'treatment': 'Piga dawa ya captan au thiophanate-methyl',
+        'phytomedicine': 'Dawa ya majani ya comfrey iliyochachushwa',
+        'prevention': 'Ondoa majani yaliyoathirika, boresha mzunguko wa hewa'
+    },
+    'Strawberry___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Dawa ya mwani baharini kama mbolea ya majani',
+        'prevention': 'Mulch sahihi, umwagiliaji wa matone'
+    },
+    'Tomato___Bacterial_spot': {
+        'treatment': 'Piga dawa ya bakteria ya shaba, epuka kufanya kazi na mimea yenye unyevu',
+        'phytomedicine': 'Dawa ya vitunguu na pilipili iliyonyunyiziwa',
+        'prevention': 'Tumia mbegu zisizokuwa na ugonjwa, pinda mazao'
+    },
+    'Tomato___Early_blight': {
+        'treatment': 'Piga dawa ya chlorothalonil, ondoa majani ya chini',
+        'phytomedicine': 'Dawa ya mmea wa nettle uliyochachushwa',
+        'prevention': 'Pinda mazao, nafasi sahihi kati ya mimea'
+    },
+    'Tomato___Late_blight': {
+        'treatment': 'Piga dawa ya chlorothalonil, angamiza mimea iliyoathirika',
+        'phytomedicine': 'Dawa ya chai ya mkia wa farasi kila siku 5',
+        'prevention': 'Aina zinazostahimili, epuka kumwagilia kutoka juu'
+    },
+    'Tomato___Leaf_Mold': {
+        'treatment': 'Boresha mzunguko wa hewa, piga dawa ya chlorothalonil',
+        'phytomedicine': 'Mchanganyiko wa soda ya kuoka (kijiko 1 kwa lita)',
+        'prevention': 'Nafasi sahihi, uingizaji hewa wa greenhouse'
+    },
+    'Tomato___Septoria_leaf_spot': {
+        'treatment': 'Piga dawa ya shaba, ondoa majani yaliyoathirika',
+        'phytomedicine': 'Dawa ya maua ya African marigold iliyochachushwa',
+        'prevention': 'Pinda mazao, epuka umwagiliaji wa juu'
+    },
+    'Tomato___Spider_mites Two-spotted_spider_mite': {
+        'treatment': 'Piga dawa ya kuua utitiri au sabuni ya wadudu',
+        'phytomedicine': 'Mafuta ya neem yaliyochanganywa na sabuni ya maji',
+        'prevention': 'Dumisha unyevu, palilia magugu'
+    },
+    'Tomato___Target_Spot': {
+        'treatment': 'Piga dawa ya chlorothalonil, ondoa nyenzo zilizoathirika',
+        'phytomedicine': 'Dawa ya majani ya papai iliyochachushwa',
+        'prevention': 'Pinda mazao, aina zinazostahimili'
+    },
+    'Tomato___Tomato_Yellow_Leaf_Curl_Virus': {
+        'treatment': 'Dhibiti wadudu wa nzi weupe, ondoa mimea iliyoathirika',
+        'phytomedicine': 'Mafuta ya neem kudhibiti nzi weupe',
+        'prevention': 'Aina zinazostahimili, mulch inayoakisi mwanga'
+    },
+    'Tomato___Tomato_mosaic_virus': {
+        'treatment': 'Hakuna dawa ya kuponya, ondoa mimea iliyoathirika',
+        'phytomedicine': 'Hakuna - zingatia kuzuia',
+        'prevention': 'Tumia mbegu zilizoidhinishwa, safisha zana'
+    },
+    'Tomato___healthy': {
+        'treatment': 'Hakuna matibabu yanayohitajika',
+        'phytomedicine': 'Chai ya mboji kama dawa ya majani',
+        'prevention': 'Weka msalaba sahihi, mbolea ya kusawazisha'
+    },
+}
 
+
+@app.route('/set-lang/<lang>')
+def set_lang(lang):
+    if lang in ('en', 'sw'):
+        session['lang'] = lang
+    return redirect(request.referrer or url_for('index'))
+
+
+@app.context_processor
+def inject_lang():
+    return {'lang': session.get('lang', 'en')}
 
 
 
@@ -1479,6 +1683,14 @@ def predict():
                     'phytomedicine': 'Not specified',
                     'prevention': 'Practice good crop management'
                 })
+
+                # Apply Swahili translations if farmer has selected Swahili
+                if session.get('lang') == 'sw' and top_disease in disease_info_sw:
+                    sw = disease_info_sw[top_disease]
+                    disease_data = dict(disease_data)
+                    disease_data['treatment'] = sw.get('treatment', disease_data['treatment'])
+                    disease_data['phytomedicine'] = sw.get('phytomedicine', disease_data['phytomedicine'])
+                    disease_data['prevention'] = sw.get('prevention', disease_data['prevention'])
 
                 # Format disease name for display
                 display_name = top_disease.replace(f"{plant_prefix}___", "").replace("_", " ")
