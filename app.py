@@ -95,7 +95,7 @@ app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')  # For generating tokens
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or app.config['SECRET_KEY']  # For generating tokens
 
 
 mail = Mail(app)
@@ -127,6 +127,8 @@ def load_user(user_id):
 
 
 with app.app_context():
+    db.create_all()
+    initialize_counties()
     ensure_payment_confirmation_column()
 
 
@@ -874,6 +876,113 @@ def login():
             return redirect(url_for('dashboard'))
         flash('Invalid email or password')
     return render_template('login.html', form=form)
+
+
+def _clear_password_reset_session():
+    session.pop('password_reset_email', None)
+    session.pop('password_reset_otp', None)
+    session.pop('password_reset_expires', None)
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    now_ts = datetime.utcnow().timestamp()
+    expires_ts = float(session.get('password_reset_expires', 0) or 0)
+
+    # Drop stale OTP session data to prevent confusing states.
+    if expires_ts and now_ts > expires_ts:
+        _clear_password_reset_session()
+
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+
+        if action == 'send_otp':
+            email = request.form.get('email', '').strip().lower()
+            user = User.query.filter_by(email=email).first()
+
+            if not user:
+                flash('No account found with that email.', 'danger')
+                return redirect(url_for('forgot_password'))
+
+            otp = ''.join(str(random.randint(0, 9)) for _ in range(6))
+            session['password_reset_email'] = email
+            session['password_reset_otp'] = otp
+            session['password_reset_expires'] = (datetime.utcnow() + timedelta(minutes=10)).timestamp()
+
+            msg = Message(
+                'Your Password Reset OTP',
+                recipients=[email],
+                body=(
+                    f'Your DeepMind Dynamics password reset OTP is: {otp}\n\n'
+                    'This OTP expires in 10 minutes.'
+                )
+            )
+
+            try:
+                mail.send(msg)
+                flash('OTP sent to your email. Enter it below to reset your password.', 'success')
+            except Exception as exc:
+                app.logger.error(f'Password reset email failed: {exc}')
+                _clear_password_reset_session()
+                flash('Could not send OTP email right now. Please try again later.', 'danger')
+
+            return redirect(url_for('forgot_password'))
+
+        if action == 'reset_password':
+            otp_input = request.form.get('otp', '').strip()
+            new_password = request.form.get('new_password', '').strip()
+            confirm_password = request.form.get('confirm_password', '').strip()
+
+            reset_email = session.get('password_reset_email')
+            stored_otp = session.get('password_reset_otp')
+            expires = float(session.get('password_reset_expires', 0) or 0)
+
+            if not reset_email or not stored_otp or not expires:
+                flash('Start password reset again to get a valid OTP.', 'warning')
+                return redirect(url_for('forgot_password'))
+
+            if datetime.utcnow().timestamp() > expires:
+                _clear_password_reset_session()
+                flash('OTP expired. Request a new one.', 'warning')
+                return redirect(url_for('forgot_password'))
+
+            if otp_input != stored_otp:
+                flash('Invalid OTP code.', 'danger')
+                return redirect(url_for('forgot_password'))
+
+            if len(new_password) < 6:
+                flash('Password must be at least 6 characters.', 'danger')
+                return redirect(url_for('forgot_password'))
+
+            if new_password != confirm_password:
+                flash('Passwords do not match.', 'danger')
+                return redirect(url_for('forgot_password'))
+
+            user = User.query.filter_by(email=reset_email).first()
+            if not user:
+                _clear_password_reset_session()
+                flash('Account not found. Please register first.', 'danger')
+                return redirect(url_for('register'))
+
+            user.set_password(new_password)
+            db.session.commit()
+            _clear_password_reset_session()
+            flash('Password reset successful. Please log in.', 'success')
+            return redirect(url_for('login'))
+
+        flash('Invalid password reset action.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    reset_email = session.get('password_reset_email')
+    otp_pending = bool(
+        reset_email and
+        session.get('password_reset_otp') and
+        float(session.get('password_reset_expires', 0) or 0) > datetime.utcnow().timestamp()
+    )
+    return render_template('forgot_password.html', otp_pending=otp_pending, reset_email=reset_email)
 
 
 @app.route('/logout')
