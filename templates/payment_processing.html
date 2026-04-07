@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Processing - PlantMD</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .processing-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .processing-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        .processing-icon {
+            font-size: 4rem;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #28a745;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .progress-bar {
+            height: 6px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 30px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            width: 0%;
+            animation: progress-animation 30s linear forwards;
+        }
+        @keyframes progress-animation {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .status-updates {
+            text-align: left;
+            margin: 25px 0;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .status-item i {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        .status-item.completed {
+            color: #28a745;
+            background: #e8f5e8;
+        }
+        .status-item.pending {
+            color: #6c757d;
+            background: #f8f9fa;
+        }
+        .email-status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .countdown {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="processing-container">
+        <div class="processing-card">
+            <!-- Payment Success Icon -->
+            <div class="processing-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+
+            <h2 class="mb-3">Payment Initiated</h2>
+            <p class="text-muted mb-4">We have sent the M-Pesa STK prompt to your phone. Please approve it to complete the subscription.</p>
+
+            <!-- Email Status Display -->
+            {% if email_sent %}
+            <div class="alert alert-success email-status">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-envelope-circle-check fa-2x me-3"></i>
+                    <div>
+                        <h5 class="alert-heading mb-1">Confirmation Email Sent!</h5>
+                        <p class="mb-0">We've sent a confirmation email to <strong>{{ current_user.email }}</strong> with your subscription details.</p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning email-status">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-envelope-exclamation fa-2x me-3"></i>
+                    <div>
+                                <h5 class="alert-heading mb-1">Waiting for Confirmation</h5>
+                                <p class="mb-0">The payment request was sent. Your confirmation email will be sent once M-Pesa confirms the transaction.</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Progress Bar -->
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+
+            <!-- Status Updates -->
+            <div class="status-updates">
+                <div class="status-item completed">
+                    <i class="fas fa-check-circle"></i>
+                    <div>
+                        <strong>Payment Initiated</strong>
+                        <div class="text-muted small">Transaction request sent to M-Pesa</div>
+                    </div>
+                </div>
+
+                <div class="status-item pending">
+                    <i class="fas fa-mobile-screen-button"></i>
+                    <div>
+                        <strong>Awaiting Approval</strong>
+                        <div class="text-muted small">Approve the M-Pesa prompt on your phone</div>
+                    </div>
+                </div>
+
+                <div class="status-item {% if email_sent %}completed{% else %}pending{% endif %}">
+                    <i class="fas {% if email_sent %}fa-check-circle{% else %}fa-envelope{% endif %}"></i>
+                    <div>
+                        <strong>Confirmation Email</strong>
+                        <div class="text-muted small">
+                            {% if email_sent %}
+                            Sent to {{ current_user.email }}
+                            {% else %}
+                            Will be sent after payment confirmation
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-item pending">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <div>
+                        <strong>Activating Subscription</strong>
+                        <div class="text-muted small">Granting access to premium features</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="spinner"></div>
+
+            <!-- Payment Details -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="card-title">Payment Details</h6>
+                    <div class="row text-start">
+                        <div class="col-6">
+                            <small class="text-muted">Plan:</small>
+                            <div><strong>{{ payment.payment_type|title }} Subscription</strong></div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Amount:</small>
+                            <div><strong>KSh {{ payment.amount }}</strong></div>
+                        </div>
+                    </div>
+                    <div class="row text-start mt-2">
+                        <div class="col-6">
+                            <small class="text-muted">Phone:</small>
+                            <div><strong>{{ payment.phone_number }}</strong></div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Reference:</small>
+                            <div><strong>{{ payment.mpesa_receipt }}</strong></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Countdown Timer -->
+            <div class="countdown">
+                <i class="fas fa-clock me-1"></i>
+                Redirecting to dashboard in <span id="countdown">30</span> seconds...
+            </div>
+
+            <!-- Manual Redirect Button -->
+            <div class="mt-4">
+                <a href="{{ redirect_url }}" class="btn btn-success">
+                    <i class="fas fa-rocket me-2"></i>
+                    Continue to Dashboard Now
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Countdown timer
+        let seconds = 30;
+        const countdownElement = document.getElementById('countdown');
+        const countdownInterval = setInterval(() => {
+            seconds--;
+            countdownElement.textContent = seconds;
+
+            if (seconds <= 0) {
+                clearInterval(countdownInterval);
+                window.location.href = "{{ redirect_url }}";
+            }
+        }, 1000);
+
+        // Auto-redirect after delay
+        setTimeout(() => {
+            window.location.href = "{{ redirect_url }}";
+        }, {{ delay }});
+
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

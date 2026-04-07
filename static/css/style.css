@@ -1,0 +1,232 @@
+/* ====== NAVIGATION STYLES ====== */
+.navbar {
+    background-color: #333;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.nav-links {
+    display: flex;
+    list-style: none;
+    gap: 1rem;
+}
+
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+}
+
+.nav-links a:hover {
+    background-color: #555;
+    border-radius: 4px;
+}
+
+/* ====== PAYMENT PLAN STYLES ====== */
+.payment-plan-section {
+    padding: 3rem 0;
+    background-color: #f8fafc;
+}
+
+.plan-card {
+    border: none;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.plan-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.plan-card.monthly {
+    border-top: 4px solid #28a745;
+}
+
+.plan-card.one-time {
+    border-top: 4px solid #17a2b8;
+}
+
+.plan-card .card-header {
+    background-color: white;
+    border-bottom: none;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.plan-card .card-body {
+    padding: 2rem;
+}
+
+.plan-price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.plan-price .currency {
+    font-size: 1.5rem;
+    vertical-align: super;
+}
+
+.plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0;
+}
+
+.plan-features li {
+    padding: 0.5rem 0;
+    position: relative;
+    padding-left: 1.75rem;
+}
+
+.plan-features li:before {
+    content: "\f00c";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    color: #28a745;
+    position: absolute;
+    left: 0;
+}
+
+.plan-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.35em 0.65em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 50rem;
+}
+
+.badge-monthly {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+}
+
+.badge-one-time {
+    background-color: rgba(23, 162, 184, 0.1);
+    color: #17a2b8;
+}
+
+/* M-Pesa Payment Form Styles */
+.mpesa-form {
+    background-color: white;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.phone-input-group {
+    position: relative;
+}
+
+.phone-prefix {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    font-weight: 500;
+    z-index: 3;
+}
+
+#phone_number {
+    padding-left: 3.5rem;
+}
+
+.payment-summary {
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+}
+
+.payment-summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed #dee2e6;
+}
+
+.payment-summary-item.total {
+    font-weight: 600;
+    border-bottom: none;
+    font-size: 1.1rem;
+}
+
+/* Payment Status Styles */
+.payment-status-icon {
+    font-size: 5rem;
+    margin-bottom: 1.5rem;
+}
+
+.status-success {
+    color: #28a745;
+}
+
+.status-pending {
+    color: #ffc107;
+}
+
+.status-failed {
+    color: #dc3545;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        padding: 1rem 0.5rem;
+    }
+
+    .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    .plan-card {
+        margin-bottom: 2rem;
+    }
+
+    .plan-price {
+        font-size: 2rem;
+    }
+
+    .mpesa-form {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .payment-plan-section {
+        padding: 2rem 0;
+    }
+
+    .plan-card .card-body {
+        padding: 1.5rem;
+    }
+
+    .plan-features li {
+        font-size: 0.9rem;
+    }
+
+    .nav-links {
+        gap: 0.5rem;
+    }
+
+    .nav-links a {
+        padding: 0.5rem;
+    }
+}
