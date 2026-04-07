@@ -105,8 +105,8 @@
                 <i class="fas fa-check-circle"></i>
             </div>
 
-            <h2 class="mb-3">Payment Initiated</h2>
-            <p class="text-muted mb-4">We have sent the M-Pesa STK prompt to your phone. Please approve it to complete the subscription.</p>
+            <h2 class="mb-3">Payment Processing</h2>
+            <p class="text-muted mb-4">Your payment is being processed. Please wait while we confirm your transaction.</p>
 
             <!-- Email Status Display -->
             {% if email_sent %}
@@ -124,8 +124,8 @@
                 <div class="d-flex align-items-center">
                     <i class="fas fa-envelope-exclamation fa-2x me-3"></i>
                     <div>
-                                <h5 class="alert-heading mb-1">Waiting for Confirmation</h5>
-                                <p class="mb-0">The payment request was sent. Your confirmation email will be sent once M-Pesa confirms the transaction.</p>
+                        <h5 class="alert-heading mb-1">Email Delivery Issue</h5>
+                        <p class="mb-0">Payment processed successfully, but we couldn't send the confirmation email to {{ current_user.email }}. Your subscription is still active.</p>
                     </div>
                 </div>
             </div>
@@ -146,11 +146,11 @@
                     </div>
                 </div>
 
-                <div class="status-item pending">
-                    <i class="fas fa-mobile-screen-button"></i>
+                <div class="status-item completed">
+                    <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>Awaiting Approval</strong>
-                        <div class="text-muted small">Approve the M-Pesa prompt on your phone</div>
+                        <strong>Payment Received</strong>
+                        <div class="text-muted small">Funds successfully processed</div>
                     </div>
                 </div>
 
@@ -162,7 +162,7 @@
                             {% if email_sent %}
                             Sent to {{ current_user.email }}
                             {% else %}
-                            Will be sent after payment confirmation
+                            Preparing to send...
                             {% endif %}
                         </div>
                     </div>
@@ -215,7 +215,7 @@
 
             <!-- Manual Redirect Button -->
             <div class="mt-4">
-                <a href="{{ redirect_url }}" class="btn btn-success">
+                <a href="{{ redirect_url }}" class="btn btn-primary">
                     <i class="fas fa-rocket me-2"></i>
                     Continue to Dashboard Now
                 </a>
@@ -242,6 +242,16 @@
             window.location.href = "{{ redirect_url }}";
         }, {{ delay }});
 
+        // Simulate status updates
+        setTimeout(() => {
+            document.querySelectorAll('.status-item')[2].classList.add('completed');
+            document.querySelectorAll('.status-item')[2].querySelector('i').className = 'fas fa-check-circle';
+        }, 2000);
+
+        setTimeout(() => {
+            document.querySelectorAll('.status-item')[3].classList.add('completed');
+            document.querySelectorAll('.status-item')[3].querySelector('i').className = 'fas fa-check-circle';
+        }, 5000);
     </script>
 
     <!-- Bootstrap JS -->

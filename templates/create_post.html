@@ -10,7 +10,7 @@
                     <h4 class="mb-0">Create New Forum Post</h4>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('create_forum_post') }}" enctype="multipart/form-data">
+                    <form method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data">
                         {{ form.hidden_tag() }}
 
                         <div class="mb-3">

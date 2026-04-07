@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Welcome, {{ user.name }}</h2>
+    <h2>Welcome, {{ user.username }}</h2>
     <a href="{{ url_for('select_plant') }}" class="btn btn-success">
         <i class="bi bi-plus-circle"></i> New Prediction
     </a>
@@ -14,13 +14,13 @@
         <div class="list-group-item">
             <div class="d-flex w-100 justify-content-between">
                 <div class="d-flex align-items-center">
-                    <img src="{{ prediction.image_path }}" width="80" height="80" class="rounded me-3" alt="Plant Image">
+                    <img src="{{ url_for('uploaded_file', filename=prediction.image_path) }}" width="80" height="80" class="rounded me-3" alt="Plant Image">
                     <div>
                         <h5 class="mb-1">{{ prediction.plant_type|capitalize }} - {{ prediction.disease.replace('_', ' ') }}</h5>
                         <!-- REMOVED CONFIDENCE LINE -->
                     </div>
                 </div>
-                <small>{{ prediction.date_created }}</small>
+                <small>{{ prediction.created_at.strftime('%b %d, %Y %I:%M %p') if prediction.created_at else '' }}</small>
             </div>
             <div class="treatment-info mt-2">
                 <strong>Treatment:</strong> {{ prediction.treatment }}

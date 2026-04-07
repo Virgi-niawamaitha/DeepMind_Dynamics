@@ -1,2 +1,13 @@
+Flask
+Flask-Login
 Flask-Mail==0.9.1
-ngrok
+Flask-SQLAlchemy
+Flask-WTF
+WTForms
+email-validator
+numpy
+Pillow
+python-dotenv
+requests
+reportlab
+tensorflow

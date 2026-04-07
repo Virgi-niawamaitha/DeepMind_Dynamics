@@ -1,9 +1,10 @@
 import os
 import glob
 import random
+import json
 
 import requests
-from flask import Flask, render_template, request, redirect, url_for, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, abort, g, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from sqlalchemy.sql.operators import or_
@@ -23,68 +24,39 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO
 from flask import session
-from datetime import datetime, timedelta
-from flask import Flask, render_template, redirect, url_for, flash, request
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, current_user, login_user, logout_user, login_required
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Flask, render_template, redirect, url_for, flash
-from flask_login import LoginManager, current_user
-from models import  County
-from forms import RegistrationForm, PaymentForm, CommentForm
-from flask import Flask, render_template, redirect, url_for, flash
-from flask_login import LoginManager, UserMixin, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from models import db
-from forms import RegistrationForm, PaymentForm, CommentForm
-from flask import Flask, render_template, redirect, url_for, flash
-from flask_login import LoginManager, current_user, login_required
-from werkzeug.security import generate_password_hash
-from models import db, User, ForumPost, ForumComment
-from forms import RegistrationForm
-from flask import Flask, render_template, redirect, url_for, flash
-from flask_login import LoginManager, current_user, login_required
-from werkzeug.security import generate_password_hash
-from models import db, User, ForumPost, ForumComment
-from forms import RegistrationForm
-from models import db
-from models import db, User, Prediction, Payment, UserCalendar, ForumPost, ForumComment, PostPhoto
-# Remove duplicate imports and keep only:
-from forms import LoginForm, RegistrationForm, PredictionForm, CommentForm, PostForm
-from forms import PredictionForm
-# At the top of app.py with other imports
-from forms import CountyForm
-from models import ForumComment
-from forms import KENYAN_COUNTIES
-# Initialize Flask app
+
+from models import County, User, Prediction, Payment, UserCalendar, ForumPost, ForumComment, PostPhoto, db
+from forms import LoginForm, RegistrationForm, PredictionForm, CommentForm, PostForm, CountyForm, PaymentForm
+from forms import KENYAN_COUNTIES, initialize_counties
+
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
-import os
 from dotenv import load_dotenv
-from forms import initialize_counties
-
 
 from mpesa import MpesaGateway
 
-# Initialize M-Pesa gateway
-
-
+# Initialize Flask app
 app = Flask(__name__,
             template_folder='templates',
             static_folder='static')
 load_dotenv()
-load_dotenv()
-mpesa = MpesaGateway()
+
+try:
+    mpesa = MpesaGateway()
+    MPESA_AVAILABLE = True
+except Exception as exc:
+    mpesa = None
+    MPESA_AVAILABLE = False
+    print(f"M-Pesa disabled at startup: {exc}")
 print("MAIL_USERNAME loaded:", os.getenv('MAIL_USERNAME') is not None)
 print("SECRET_KEY loaded:", os.getenv('SECRET_KEY') is not None)
 
-app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Use absolute path so uploads always work regardless of CWD
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app.config['UPLOAD_FOLDER'] = os.path.join(_BASE_DIR, 'static', 'uploads')
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
 
 # Configure Flask-Mail
@@ -95,86 +67,115 @@ app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or app.config['SECRET_KEY']  # For generating tokens
-
 
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 # Initialize database
-
 db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-
-def ensure_payment_confirmation_column():
-    try:
-        inspector = inspect(db.engine)
-        payment_columns = {column['name'] for column in inspector.get_columns('payments')}
-        if 'confirmation_sent' not in payment_columns:
-            db.session.execute(text(
-                'ALTER TABLE payments ADD COLUMN confirmation_sent BOOLEAN NOT NULL DEFAULT 0'
-            ))
-            db.session.commit()
-    except Exception as exc:
-        app.logger.warning(f'Could not ensure payment confirmation column: {exc}')
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-
 with app.app_context():
     db.create_all()
     initialize_counties()
-    ensure_payment_confirmation_column()
 
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        # Check verification code
-        if (session.get('verification_email') != form.email.data or
-                session.get('verification_code') != form.verification_code.data or
-                session.get('verification_expires', 0) < datetime.now().timestamp()):
-            flash('Invalid or expired verification code', 'danger')
-            return redirect(url_for('register'))
+# Language preference storage (in session)
+def get_user_language():
+    return session.get('language', 'en')
 
-        # Proceed with registration
-        county = County.query.get(form.county.data)
-        user = User(
-            username=form.username.data,
-            email=form.email.data,
-            county=county
-        )
-        user.set_password(form.password.data)
+def set_user_language(lang):
+    session['language'] = lang
 
-        db.session.add(user)
-        db.session.commit()
+# ============== KISWAHILI TRANSLATIONS ==============
+translations = {
+    'en': {
+        'welcome': 'Welcome to PlantMD',
+        'dashboard': 'Dashboard',
+        'predict': 'Predict Disease',
+        'forum': 'Community Forum',
+        'payment': 'Payment',
+        'profile': 'Profile',
+        'logout': 'Logout',
+        'login': 'Login',
+        'register': 'Register',
+        'disease_detected': 'Disease Detected',
+        'confidence': 'Confidence',
+        'treatment': 'Treatment',
+        'prevention': 'Prevention',
+        'phytomedicine': 'Phytomedicine (Natural Remedy)',
+        'drug_recommendations': 'Drug Recommendations',
+        'scientific_name': 'Scientific Name',
+        'dosage': 'Dosage',
+        'frequency': 'Frequency',
+        'warning': 'Warning',
+        'select_plant': 'Select Plant Type',
+        'upload_image': 'Upload Image',
+        'analyze': 'Analyze',
+        'back': 'Back',
+        'share_experience': 'Share Your Experience',
+        'comments': 'Comments',
+        'add_comment': 'Add Comment',
+        'subscription_active': 'Your subscription is active',
+        'subscription_expired': 'Your subscription has expired',
+        'pay_now': 'Pay Now',
+        'monthly': 'Monthly',
+        'weekly': 'Weekly',
+        'amount': 'Amount',
+        'phone_number': 'Phone Number',
+        'payment_successful': 'Payment Successful',
+        'payment_failed': 'Payment Failed',
+        'kenyan_shillings': 'KSh'
+    },
+    'sw': {
+        'welcome': 'Karibu PlantMD',
+        'dashboard': 'Dashibodi',
+        'predict': 'Tabiri Ugonjwa',
+        'forum': 'Jukwaa la Jamii',
+        'payment': 'Malipo',
+        'profile': 'Wasifu',
+        'logout': 'Toka',
+        'login': 'Ingia',
+        'register': 'Jisajili',
+        'disease_detected': 'Ugonjwa Uligunduliwa',
+        'confidence': 'Uhakika',
+        'treatment': 'Matibabu',
+        'prevention': 'Kinga',
+        'phytomedicine': 'Dawa za Asili',
+        'drug_recommendations': 'Mapendekezo ya Dawa',
+        'scientific_name': 'Jina la Kisayansi',
+        'dosage': 'Kipimo',
+        'frequency': 'Mara ngapi',
+        'warning': 'Tahadhari',
+        'select_plant': 'Chagua Aina ya Mmea',
+        'upload_image': 'Pakia Picha',
+        'analyze': 'Chambua',
+        'back': 'Rudi',
+        'share_experience': 'Shiriki Uzoefu Wako',
+        'comments': 'Maoni',
+        'add_comment': 'Ongeza Maoni',
+        'subscription_active': 'Usajili wako ni hai',
+        'subscription_expired': 'Usajili wako umeisha',
+        'pay_now': 'Lipa Sasa',
+        'monthly': 'Kila Mwezi',
+        'weekly': 'Kila Wiki',
+        'amount': 'Kiasi',
+        'phone_number': 'Namba ya Simu',
+        'payment_successful': 'Malipo Yamekamilika',
+        'payment_failed': 'Malipo Yameshindikana',
+        'kenyan_shillings': 'KSh'
+    }
+}
 
-        # Clear verification data
-        session.pop('verification_email', None)
-        session.pop('verification_code', None)
-        session.pop('verification_expires', None)
+def t(key, lang=None):
+    """Translation helper function"""
+    if lang is None:
+        lang = get_user_language()
+    return translations.get(lang, translations['en']).get(key, key)
 
-        flash('Registration successful! Please login.', 'success')
-        return redirect(url_for('login'))
-
-    return render_template('register.html', form=form)
-# --- Database Models ---
-
-
-# Define User model here to avoid circular imports
-
-
-
-
-
-from models import User
-
+# ============== DISEASE INFORMATION WITH KISWAHILI AND DRUGS ==============
 disease_classes = [
     'Apple___Apple_scab',
     'Apple___Black_rot',
@@ -215,621 +216,276 @@ disease_classes = [
     'Tomato___Tomato_mosaic_virus',
     'Tomato___healthy'
 ]
+
+# Complete disease information with Kiswahili names and drug recommendations
 disease_info = {
     'Apple___Apple_scab': {
         'scientific_name': 'Venturia inaequalis',
+        'swahili_name': 'Ukungu wa Tufaha',
         'treatment': 'Apply copper-based fungicides or sulfur sprays. Prune infected branches and destroy fallen leaves.',
-        'agrovet_medications': [
-            'Cuprocaffaro 37.5WP (copper oxychloride) – protectant spray at 7-day intervals',
-            'Dithane M-45 80WP (mancozeb) – apply at pink/petal fall stage',
-            'Score 250EC (difenoconazole) – curative spray at first sign of lesions'
-        ],
+        'treatment_sw': 'Tumia dawa za kuua ukungu zenye shaba au salfa. Kata matawi yaliyoathirika na choma majani yaliyoanguka.',
         'phytomedicine': 'Neem oil (Azadirachta indica) spray every 10 days',
-        'prevention': 'Plant resistant varieties, maintain proper tree spacing, remove infected plant debris'
+        'phytomedicine_sw': 'Mafuta ya Mwarobaini kila siku 10',
+        'prevention': 'Plant resistant varieties, maintain proper tree spacing, remove infected plant debris',
+        'prevention_sw': 'Panda aina zinazokinza, weka umbali mwafaka kati ya miti, ondoa mabaki ya mimea yenye ugonjwa',
+        'drugs': [
+            {'name': 'Copper hydroxide', 'name_sw': 'Hidroksidi ya Shaba', 'dosage': '2g per liter water', 'dosage_sw': '2g kwa lita moja ya maji', 'frequency': 'Every 7-10 days', 'frequency_sw': 'Kila siku 7-10'},
+            {'name': 'Mancozeb', 'name_sw': 'Mancozeb', 'dosage': '2.5g per liter', 'dosage_sw': '2.5g kwa lita', 'frequency': 'Weekly during wet season', 'frequency_sw': 'Kila wiki wakati wa mvua'}
+        ]
     },
     'Apple___Black_rot': {
         'scientific_name': 'Botryosphaeria obtusa',
+        'swahili_name': 'Uozo Mweusi wa Tufaha',
         'treatment': 'Remove mummified fruits and infected branches. Apply captan fungicide.',
-        'agrovet_medications': [
-            'Captan 50WP – apply every 10–14 days from bud break',
-            'Mancozeb 80WP (Dithane M-45) – protectant spray during wet periods',
-            'Thiophanate-methyl 70WP – systemic fungicide for curative action'
-        ],
+        'treatment_sw': 'Ondoa matunda yaliyokauka na matawi yenye ugonjwa. Tumia dawa ya captan.',
         'phytomedicine': 'Garlic (Allium sativum) and chili pepper extract spray',
-        'prevention': 'Avoid tree wounds, practice good orchard sanitation'
+        'phytomedicine_sw': 'Dawa ya kitunguu saumu na pilipili kali',
+        'prevention': 'Avoid tree wounds, practice good orchard sanitation',
+        'prevention_sw': 'Epuka kuumiza miti, safisha shamba vizuri',
+        'drugs': [
+            {'name': 'Captan 50WP', 'name_sw': 'Captan 50WP', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Every 10-14 days', 'frequency_sw': 'Kila siku 10-14'},
+            {'name': 'Copper oxychloride', 'name_sw': 'Oksikloridi ya Shaba', 'dosage': '2.5g per liter', 'dosage_sw': '2.5g kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'}
+        ]
     },
-    'Apple___Cedar_apple_rust': {
-        'scientific_name': 'Gymnosporangium juniperi-virginianae',
-        'treatment': 'Apply fungicides in early spring. Remove nearby juniper plants.',
-        'agrovet_medications': [
-            'Syllit 400SC (dodine) – apply at pink stage and repeat every 10 days',
-            'Score 250EC (difenoconazole) – systemic triazole at first signs',
-            'Sulfur 80WP – protective spray from green tip to petal fall'
-        ],
-        'phytomedicine': 'Baking soda solution (1 tbsp per liter) with horticultural oil',
-        'prevention': 'Plant resistant varieties, remove alternate hosts within 2km radius'
+    'Potato___Late_blight': {
+        'scientific_name': 'Phytophthora infestans',
+        'swahili_name': 'Kivujiju cha Viazi',
+        'treatment': 'Apply metalaxyl or chlorothalonil fungicides. Destroy infected plants immediately.',
+        'treatment_sw': 'Tumia dawa za metalaxyl au chlorothalonil. Haribu mimea yenye ugonjwa mara moja.',
+        'phytomedicine': 'Horsetail tea spray every 5 days',
+        'phytomedicine_sw': 'Chai ya kimbia kila siku 5',
+        'prevention': 'Plant resistant varieties, avoid overhead irrigation, crop rotation',
+        'prevention_sw': 'Panda aina zinazokinza, epuka kumwagilia maji kwa kunyeshea, mzunguko wa mazao',
+        'drugs': [
+            {'name': 'Ridomil Gold MZ 68WG', 'name_sw': 'Ridomil Gold MZ 68WG', 'dosage': '2.5g per liter water', 'dosage_sw': '2.5g kwa lita moja ya maji', 'frequency': 'Every 5-7 days', 'frequency_sw': 'Kila siku 5-7'},
+            {'name': 'Dithane M-45 80WP', 'name_sw': 'Dithane M-45 80WP', 'dosage': '2g per liter water', 'dosage_sw': '2g kwa lita moja ya maji', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'},
+            {'name': 'Acrobat MZ 69WP', 'name_sw': 'Acrobat MZ 69WP', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Every 7 days', 'frequency_sw': 'Kila siku 7'}
+        ]
     },
-    'Apple___healthy': {
-        'scientific_name': 'Healthy apple plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Preventive neem oil sprays every 2 weeks',
-        'prevention': 'Maintain proper nutrition and irrigation, regular pruning'
+    'Tomato___Late_blight': {
+        'scientific_name': 'Phytophthora infestans',
+        'swahili_name': 'Kivujiju cha Nyanya',
+        'treatment': 'Apply chlorothalonil or metalaxyl fungicides. Destroy infected plants.',
+        'treatment_sw': 'Tumia dawa za chlorothalonil au metalaxyl. Haribu mimea yenye ugonjwa.',
+        'phytomedicine': 'Horsetail tea spray every 5 days',
+        'phytomedicine_sw': 'Chai ya kimbia kila siku 5',
+        'prevention': 'Resistant varieties, avoid overhead watering, proper staking',
+        'prevention_sw': 'Aina zinazokinza, epuka kumwagilia kwa kunyeshea, weka vigingi vizuri',
+        'drugs': [
+            {'name': 'Ridomil Gold MZ 68WG', 'name_sw': 'Ridomil Gold MZ 68WG', 'dosage': '2.5g per liter', 'dosage_sw': '2.5g kwa lita', 'frequency': 'Every 5-7 days', 'frequency_sw': 'Kila siku 5-7'},
+            {'name': 'Dithane M-45', 'name_sw': 'Dithane M-45', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'},
+            {'name': 'Bravo 720SC', 'name_sw': 'Bravo 720SC', 'dosage': '1.5ml per liter', 'dosage_sw': '1.5ml kwa lita', 'frequency': 'Every 7-10 days', 'frequency_sw': 'Kila siku 7-10'}
+        ]
     },
-    'Blueberry___healthy': {
-        'scientific_name': 'Healthy blueberry plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Aloe vera leaf extract as foliar spray',
-        'prevention': 'Maintain acidic soil pH (4.0-5.0), proper mulching'
-    },
-    'Cherry_(including_sour)___Powdery_mildew': {
-        'scientific_name': 'Podosphaera clandestina',
-        'treatment': 'Apply sulfur or potassium bicarbonate fungicides',
-        'agrovet_medications': [
-            'Kumulus DF (sulfur 80%) – apply every 7–10 days in dry weather',
-            'Topas 100EC (penconazole) – systemic triazole at first symptoms',
-            'Karathane (dinocap) – specific powdery mildew fungicide'
-        ],
-        'phytomedicine': 'Milk spray (1 part milk to 9 parts water) weekly',
-        'prevention': 'Improve air circulation, avoid overhead irrigation'
-    },
-    'Cherry_(including_sour)___healthy': {
-        'scientific_name': 'Healthy cherry plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Compost tea as soil drench monthly',
-        'prevention': 'Regular pruning, balanced fertilization'
-    },
-    'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot': {
-        'scientific_name': 'Cercospora zeae-maydis',
-        'treatment': 'Apply fungicides containing azoxystrobin or propiconazole',
-        'agrovet_medications': [
-            'Amistar 250SC (azoxystrobin) – apply at tasseling, repeat after 14 days',
-            'Tilt 250EC (propiconazole) – apply at first sign of lesions',
-            'Folicur 250EW (tebuconazole) – systemic triazole at early disease onset'
-        ],
-        'phytomedicine': 'Fermented stinging nettle (Urtica dioica) extract',
-        'prevention': 'Crop rotation, resistant varieties, proper plant spacing'
+    'Tomato___Early_blight': {
+        'scientific_name': 'Alternaria solani',
+        'swahili_name': 'Ukungu wa Mapema wa Nyanya',
+        'treatment': 'Apply chlorothalonil, remove lower leaves',
+        'treatment_sw': 'Tumia chlorothalonil, ondoa majani ya chini',
+        'phytomedicine': 'Fermented stinging nettle extract',
+        'phytomedicine_sw': 'Dawa ya kienyeji ya kigutu',
+        'prevention': 'Crop rotation, proper plant spacing',
+        'prevention_sw': 'Mzunguko wa mazao, umbali mwafaka wa mimea',
+        'drugs': [
+            {'name': 'Chlorothalonil 720SC', 'name_sw': 'Chlorothalonil 720SC', 'dosage': '2ml per liter', 'dosage_sw': '2ml kwa lita', 'frequency': 'Every 7 days', 'frequency_sw': 'Kila siku 7'},
+            {'name': 'Copper oxychloride', 'name_sw': 'Oksikloridi ya Shaba', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'},
+            {'name': 'Mancozeb', 'name_sw': 'Mancozeb', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Every 5-7 days', 'frequency_sw': 'Kila siku 5-7'}
+        ]
     },
     'Corn_(maize)___Common_rust_': {
         'scientific_name': 'Puccinia sorghi',
+        'swahili_name': 'Kutu wa Mahindi',
         'treatment': 'Apply triazole fungicides at disease onset',
-        'agrovet_medications': [
-            'Tilt 250EC (propiconazole) – apply at first pustule appearance',
-            'Folicur 250EW (tebuconazole) – systemic control of rust',
-            'Amistar Top (azoxystrobin + difenoconazole) – broad-spectrum control'
-        ],
+        'treatment_sw': 'Tumia dawa za triazole ugonjwa unapoanza',
         'phytomedicine': 'Lantana camara leaf extract spray',
-        'prevention': 'Early planting, resistant varieties, balanced fertilization'
-    },
-    'Corn_(maize)___Northern_Leaf_Blight': {
-        'scientific_name': 'Exserohilum turcicum',
-        'treatment': 'Apply chlorothalonil or mancozeb fungicides',
-        'agrovet_medications': [
-            'Dithane M-45 80WP (mancozeb) – apply every 7–10 days during wet periods',
-            'Bravo 720SC (chlorothalonil) – protectant spray at tasseling',
-            'Headline EC (pyraclostrobin) – systemic strobilurin at early onset'
-        ],
-        'phytomedicine': 'Tithonia diversifolia (Mexican sunflower) leaf extract',
-        'prevention': 'Crop rotation, tillage to bury crop residue'
-    },
-    'Corn_(maize)___healthy': {
-        'scientific_name': 'Healthy maize plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Fermented plant extracts for soil health',
-        'prevention': 'Proper spacing, timely weeding, crop rotation'
+        'phytomedicine_sw': 'Dawa ya majani ya mwabangwangu',
+        'prevention': 'Early planting, resistant varieties, balanced fertilization',
+        'prevention_sw': 'Panda mapema, aina zinazokinza, mbolea bora',
+        'drugs': [
+            {'name': 'Azoxystrobin', 'name_sw': 'Azoxystrobin', 'dosage': '1ml per liter', 'dosage_sw': '1ml kwa lita', 'frequency': 'Every 10-14 days', 'frequency_sw': 'Kila siku 10-14'},
+            {'name': 'Propiconazole', 'name_sw': 'Propiconazole', 'dosage': '1ml per liter', 'dosage_sw': '1ml kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'},
+            {'name': 'Tebuconazole', 'name_sw': 'Tebuconazole', 'dosage': '0.8ml per liter', 'dosage_sw': '0.8ml kwa lita', 'frequency': 'Every 7-10 days', 'frequency_sw': 'Kila siku 7-10'}
+        ]
     },
     'Grape___Black_rot': {
         'scientific_name': 'Guignardia bidwellii',
+        'swahili_name': 'Uozo Mweusi wa Zabibu',
         'treatment': 'Apply fungicides early in season, remove infected material',
-        'agrovet_medications': [
-            'Mancozeb 80WP (Dithane M-45) – protectant spray every 7–10 days',
-            'Topsin M 70WP (thiophanate-methyl) – systemic curative fungicide',
-            'Captan 50WP – apply from bud break through berry set'
-        ],
+        'treatment_sw': 'Tumia dawa mapema msimu, ondoa vitu vilivyoathirika',
         'phytomedicine': 'Fermented pawpaw leaf extract',
-        'prevention': 'Proper pruning, canopy management, remove mummified fruits'
-    },
-    'Grape___Esca_(Black_Measles)': {
-        'scientific_name': 'Phaeomoniella spp.',
-        'treatment': 'Prune infected wood, no effective chemical control',
-        'agrovet_medications': [
-            'Trichoderma-based bioagent (e.g. Trichomax) – soil/wound treatment to suppress trunk pathogens',
-            'Benlate 50WP (benomyl) – wound-sealing paste after pruning (limited efficacy)',
-            'Garlic extract wound sealant – traditional protective measure'
-        ],
-        'phytomedicine': 'Garlic and ginger rhizome extract',
-        'prevention': 'Avoid pruning wounds, use clean pruning tools'
-    },
-    'Grape___Leaf_blight_(Isariopsis_Leaf_Spot)': {
-        'scientific_name': 'Pseudocercospora vitis',
-        'treatment': 'Copper-based fungicides during wet periods',
-        'agrovet_medications': [
-            'Cuprocaffaro 37.5WP (copper oxychloride) – spray every 10–14 days',
-            'Dithane M-45 80WP (mancozeb) – protective cover spray',
-            'Score 250EC (difenoconazole) – systemic curative at early infection'
-        ],
-        'phytomedicine': 'Ocimum gratissimum (African basil) leaf extract',
-        'prevention': 'Improve air circulation, avoid overhead irrigation'
-    },
-    'Grape___healthy': {
-        'scientific_name': 'Healthy grape vine',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Seaweed extract as foliar spray',
-        'prevention': 'Proper trellising, balanced nutrition'
+        'phytomedicine_sw': 'Dawa ya majani ya papai',
+        'prevention': 'Proper pruning, canopy management, remove mummified fruits',
+        'prevention_sw': 'Kata vizuri, weka mizabibu vizuri, ondoa matunda yaliyokauka',
+        'drugs': [
+            {'name': 'Mancozeb', 'name_sw': 'Mancozeb', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Every 7-10 days', 'frequency_sw': 'Kila siku 7-10'},
+            {'name': 'Myclobutanil', 'name_sw': 'Myclobutanil', 'dosage': '0.5ml per liter', 'dosage_sw': '0.5ml kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'}
+        ]
     },
     'Orange___Haunglongbing_(Citrus_greening)': {
         'scientific_name': 'Candidatus Liberibacter asiaticus',
+        'swahili_name': 'Ugonjwa wa Kuwaangamiza Michungwa',
         'treatment': 'Remove infected trees, control psyllid vectors',
-        'agrovet_medications': [
-            'Actara 25WG (thiamethoxam) – systemic insecticide for psyllid control',
-            'Karate Zeon 50CS (lambda-cyhalothrin) – contact insecticide for psyllid',
-            'Imidacloprid 200SL (Confidor) – soil drench/foliar for vector management'
-        ],
+        'treatment_sw': 'Ondoa miti yenye ugonjwa, dhibiti wadudu wanaoeneza',
         'phytomedicine': 'Neem oil for psyllid control',
-        'prevention': 'Plant disease-free nursery stock, vector monitoring'
-    },
-    'Peach___Bacterial_spot': {
-        'scientific_name': 'Xanthomonas arboricola pv. pruni',
-        'treatment': 'Copper sprays during dormancy, streptomycin during growing season',
-        'agrovet_medications': [
-            'Cuprocaffaro 37.5WP (copper oxychloride) – dormancy and early season sprays',
-            'Agrimycin 17 (streptomycin sulfate) – bactericide during growing season',
-            'Kocide 2000 (copper hydroxide) – protective copper spray at petal fall'
-        ],
-        'phytomedicine': 'Horsetail (Equisetum arvense) tea spray',
-        'prevention': 'Plant resistant varieties, avoid overhead irrigation'
-    },
-    'Peach___healthy': {
-        'scientific_name': 'Healthy peach tree',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Comfrey leaf tea as foliar feed',
-        'prevention': 'Proper pruning, balanced fertilization'
+        'phytomedicine_sw': 'Mafuta ya Mwarobaini kwa wadudu',
+        'prevention': 'Plant disease-free nursery stock, vector monitoring',
+        'prevention_sw': 'Panda miche safi, fuatilia wadudu',
+        'drugs': [
+            {'name': 'Imidacloprid', 'name_sw': 'Imidacloprid', 'dosage': '0.5ml per liter', 'dosage_sw': '0.5ml kwa lita', 'frequency': 'Every 14 days (for vector control)', 'frequency_sw': 'Kila siku 14 (kwa wadudu)'},
+            {'name': 'Neem oil (organic)', 'name_sw': 'Mafuta ya Mwarobaini (asili)', 'dosage': '5ml per liter', 'dosage_sw': '5ml kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'}
+        ]
     },
     'Pepper,_bell___Bacterial_spot': {
         'scientific_name': 'Xanthomonas campestris pv. vesicatoria',
+        'swahili_name': 'Madoa ya Bakteria kwenye Pilipili',
         'treatment': 'Copper-based bactericides, avoid working with wet plants',
-        'agrovet_medications': [
-            'Kocide 2000 (copper hydroxide) – apply every 7–10 days in wet conditions',
-            'Cuprocaffaro 37.5WP (copper oxychloride) – protective bactericide spray',
-            'Agrimycin 17 (streptomycin) – for severe outbreaks in combination with copper'
-        ],
-        'phytomedicine': 'Fermented African marigold (Tagetes minuta) extract',
-        'prevention': 'Use disease-free seeds, crop rotation'
-    },
-    'Pepper,_bell___healthy': {
-        'scientific_name': 'Healthy bell pepper plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Aloe vera gel mixed with water as foliar spray',
-        'prevention': 'Proper spacing, mulching, drip irrigation'
-    },
-    'Potato___Early_blight': {
-        'scientific_name': 'Alternaria solani',
-        'treatment': 'Apply chlorothalonil or mancozeb fungicides',
-        'agrovet_medications': [
-            'Dithane M-45 80WP (mancozeb) – apply every 7 days starting at canopy closure',
-            'Bravo 720SC (chlorothalonil) – broad-spectrum protectant fungicide',
-            'Amistar 250SC (azoxystrobin) – systemic strobilurin for curative action'
-        ],
-        'phytomedicine': 'Fermented stinging nettle extract',
-        'prevention': 'Crop rotation, proper fertilization, remove crop debris'
-    },
-    'Potato___Late_blight': {
-        'scientific_name': 'Phytophthora infestans',
-        'treatment': 'Apply metalaxyl or chlorothalonil fungicides',
-        'agrovet_medications': [
-            'Ridomil Gold MZ 68WG (metalaxyl-M + mancozeb) for curative + protectant control',
-            'Dithane M-45 80WP (mancozeb) for protectant sprays every 5-7 days in wet weather',
-            'Acrobat MZ 69WP (dimethomorph + mancozeb) where available for resistance rotation'
-        ],
-        'phytomedicine': 'Horsetail tea spray every 5 days',
-        'prevention': 'Plant resistant varieties, avoid overhead irrigation'
-    },
-    'Potato___healthy': {
-        'scientific_name': 'Healthy potato plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Compost tea as soil drench',
-        'prevention': 'Proper hilling, crop rotation'
-    },
-    'Raspberry___healthy': {
-        'scientific_name': 'Healthy raspberry plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Fermented banana peel extract',
-        'prevention': 'Proper trellising, regular pruning'
-    },
-    'Soybean___healthy': {
-        'scientific_name': 'Healthy soybean plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Rhizobium inoculants for nitrogen fixation',
-        'prevention': 'Proper spacing, crop rotation'
-    },
-    'Squash___Powdery_mildew': {
-        'scientific_name': 'Podosphaera xanthii',
-        'treatment': 'Apply sulfur or potassium bicarbonate',
-        'agrovet_medications': [
-            'Kumulus DF (sulfur 80%) – apply every 7–10 days when disease pressure is high',
-            'Topas 100EC (penconazole) – systemic triazole at first sign of white powder',
-            'Thiovit Jet 80WG (sulfur) – preventive and curative powdery mildew control'
-        ],
-        'phytomedicine': 'Milk spray (1:9 ratio with water) weekly',
-        'prevention': 'Resistant varieties, proper spacing'
-    },
-    'Strawberry___Leaf_scorch': {
-        'scientific_name': 'Diplocarpon earlianum',
-        'treatment': 'Apply captan or thiophanate-methyl fungicides',
-        'agrovet_medications': [
-            'Captan 50WP – apply every 10–14 days during wet weather',
-            'Topsin M 70WP (thiophanate-methyl) – systemic fungicide at first symptoms',
-            'Mancozeb 80WP (Dithane M-45) – broad-spectrum protective spray'
-        ],
-        'phytomedicine': 'Fermented comfrey leaf extract',
-        'prevention': 'Remove infected leaves, improve air circulation'
-    },
-    'Strawberry___healthy': {
-        'scientific_name': 'Healthy strawberry plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Seaweed extract as foliar spray',
-        'prevention': 'Proper mulching, drip irrigation'
+        'treatment_sw': 'Dawa za kuua bakteria zenye shaba, epuka kugusa mimea ikiwa na maji',
+        'phytomedicine': 'Fermented African marigold extract',
+        'phytomedicine_sw': 'Dawa ya mario na majani',
+        'prevention': 'Use disease-free seeds, crop rotation',
+        'prevention_sw': 'Tumia mbegu safi, mzunguko wa mazao',
+        'drugs': [
+            {'name': 'Copper hydroxide', 'name_sw': 'Hidroksidi ya Shaba', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Every 7 days', 'frequency_sw': 'Kila siku 7'},
+            {'name': 'Streptomycin', 'name_sw': 'Streptomycin', 'dosage': '0.5g per liter', 'dosage_sw': '0.5g kwa lita', 'frequency': 'Every 5-7 days', 'frequency_sw': 'Kila siku 5-7'}
+        ]
     },
     'Tomato___Bacterial_spot': {
         'scientific_name': 'Xanthomonas spp.',
+        'swahili_name': 'Madoa ya Bakteria kwenye Nyanya',
         'treatment': 'Copper-based bactericides, avoid working with wet plants',
-        'agrovet_medications': [
-            'Kocide 2000 (copper hydroxide) – apply every 5–7 days during wet periods',
-            'Cuprocaffaro 37.5WP (copper oxychloride) – protectant bactericide spray',
-            'Agrimycin 17 (streptomycin + oxytetracycline) – for severe bacterial outbreaks'
-        ],
+        'treatment_sw': 'Dawa za kuua bakteria zenye shaba, epuka kugusa mimea ikiwa na maji',
         'phytomedicine': 'Garlic and chili pepper extract spray',
-        'prevention': 'Use disease-free seeds, crop rotation'
-    },
-    'Tomato___Early_blight': {
-        'scientific_name': 'Alternaria solani',
-        'treatment': 'Apply chlorothalonil, remove lower leaves',
-        'agrovet_medications': [
-            'Bravo 720SC (chlorothalonil) – apply every 7–10 days from first symptoms',
-            'Dithane M-45 80WP (mancozeb) – protectant spray every 7 days',
-            'Amistar 250SC (azoxystrobin) – systemic fungicide for curative action'
-        ],
-        'phytomedicine': 'Fermented stinging nettle extract',
-        'prevention': 'Crop rotation, proper plant spacing'
-    },
-    'Tomato___Late_blight': {
-        'scientific_name': 'Phytophthora infestans',
-        'treatment': 'Apply chlorothalonil, destroy infected plants',
-        'agrovet_medications': [
-            'Ridomil Gold MZ 68WG (metalaxyl-M + mancozeb) for early outbreak control',
-            'Dithane M-45 / Mancozeb 80WP for preventive cover sprays (5-7 day interval in rainy periods)',
-            'Acrobat MZ 69WP (dimethomorph + mancozeb) for follow-up sprays and rotation',
-            'Bravo 720SC / chlorothalonil formulations for protectant disease suppression'
-        ],
-        'phytomedicine': 'Horsetail tea spray every 5 days',
-        'prevention': 'Resistant varieties, avoid overhead watering'
+        'phytomedicine_sw': 'Dawa ya kitunguu saumu na pilipili kali',
+        'prevention': 'Use disease-free seeds, crop rotation',
+        'prevention_sw': 'Tumia mbegu safi, mzunguko wa mazao',
+        'drugs': [
+            {'name': 'Copper hydroxide', 'name_sw': 'Hidroksidi ya Shaba', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Every 7 days', 'frequency_sw': 'Kila siku 7'},
+            {'name': 'Copper oxychloride', 'name_sw': 'Oksikloridi ya Shaba', 'dosage': '2.5g per liter', 'dosage_sw': '2.5g kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'}
+        ]
     },
     'Tomato___Leaf_Mold': {
         'scientific_name': 'Passalora fulva',
+        'swahili_name': 'Ukungu wa Majani kwenye Nyanya',
         'treatment': 'Improve air circulation, apply chlorothalonil',
-        'agrovet_medications': [
-            'Bravo 720SC (chlorothalonil) – apply every 7–10 days in humid conditions',
-            'Flint 50WG (trifloxystrobin) – systemic strobilurin for leaf mold control',
-            'Dithane M-45 80WP (mancozeb) – protectant spray in high-humidity conditions'
-        ],
+        'treatment_sw': 'Boresha mzunguko wa hewa, tumia chlorothalonil',
         'phytomedicine': 'Baking soda solution (1 tbsp per liter)',
-        'prevention': 'Proper spacing, greenhouse ventilation'
+        'phytomedicine_sw': 'Soda kauni (kijiko 1 kwa lita)',
+        'prevention': 'Proper spacing, greenhouse ventilation',
+        'prevention_sw': 'Umbali mwafaka, uingizaji hewa kwenye chafu',
+        'drugs': [
+            {'name': 'Chlorothalonil', 'name_sw': 'Chlorothalonil', 'dosage': '2ml per liter', 'dosage_sw': '2ml kwa lita', 'frequency': 'Every 7 days', 'frequency_sw': 'Kila siku 7'},
+            {'name': 'Sulfur', 'name_sw': 'Salfa', 'dosage': '3g per liter', 'dosage_sw': '3g kwa lita', 'frequency': 'Every 5-7 days', 'frequency_sw': 'Kila siku 5-7'}
+        ]
     },
     'Tomato___Septoria_leaf_spot': {
         'scientific_name': 'Septoria lycopersici',
+        'swahili_name': 'Madoa ya Septoria kwenye Nyanya',
         'treatment': 'Copper-based fungicides, remove infected leaves',
-        'agrovet_medications': [
-            'Kocide 2000 (copper hydroxide) – protective spray every 7–10 days',
-            'Bravo 720SC (chlorothalonil) – broad-spectrum protectant fungicide',
-            'Topsin M 70WP (thiophanate-methyl) – systemic curative fungicide'
-        ],
+        'treatment_sw': 'Dawa za kuua ukungu zenye shaba, ondoa majani yenye ugonjwa',
         'phytomedicine': 'Fermented African marigold extract',
-        'prevention': 'Crop rotation, avoid overhead irrigation'
-    },
-    'Tomato___Spider_mites Two-spotted_spider_mite': {
-        'scientific_name': 'Tetranychus urticae',
-        'treatment': 'Apply miticides or insecticidal soap',
-        'agrovet_medications': [
-            'Oberon SC (spiromesifen) – miticide specifically for spider mites',
-            'Abamectin 1.8EC (Agrimek) – broad-spectrum miticide/insecticide',
-            'Envidor 240SC (spirodiclofen) – ovicidal + adulticidal mite control'
-        ],
-        'phytomedicine': 'Neem oil with liquid soap spray',
-        'prevention': 'Maintain humidity, weed control'
-    },
-    'Tomato___Target_Spot': {
-        'scientific_name': 'Corynespora cassiicola',
-        'treatment': 'Apply chlorothalonil, remove infected material',
-        'agrovet_medications': [
-            'Bravo 720SC (chlorothalonil) – apply every 7–10 days from first symptoms',
-            'Amistar 250SC (azoxystrobin) – systemic strobilurin for curative action',
-            'Mancozeb 80WP (Dithane M-45) – protectant spray every 7 days'
-        ],
-        'phytomedicine': 'Fermented pawpaw leaf extract',
-        'prevention': 'Crop rotation, resistant varieties'
-    },
-    'Tomato___Tomato_Yellow_Leaf_Curl_Virus': {
-        'scientific_name': 'Begomovirus',
-        'treatment': 'Control whitefly vectors, remove infected plants',
-        'agrovet_medications': [
-            'Actara 25WG (thiamethoxam) – systemic insecticide for whitefly control',
-            'Confidor 200SL (imidacloprid) – soil drench or foliar for whitefly',
-            'Karate Zeon 50CS (lambda-cyhalothrin) – contact insecticide for vectors'
-        ],
-        'phytomedicine': 'Neem oil for whitefly control',
-        'prevention': 'Resistant varieties, reflective mulches'
-    },
-    'Tomato___Tomato_mosaic_virus': {
-        'scientific_name': 'Tobamovirus',
-        'treatment': 'No cure, remove infected plants',
-        'agrovet_medications': [
-            'No curative chemical available – focus on prevention',
-            'Virkon S (disinfectant) – use to sterilize tools and equipment',
-            'Karate Zeon 50CS – control aphid/insect vectors to limit spread'
-        ],
-        'phytomedicine': 'None - focus on prevention',
-        'prevention': 'Use certified disease-free seeds, disinfect tools'
-    },
-    'Tomato___healthy': {
-        'scientific_name': 'Healthy tomato plant',
-        'treatment': 'No treatment required',
-        'agrovet_medications': [],
-        'phytomedicine': 'Compost tea as foliar spray',
-        'prevention': 'Proper staking, balanced fertilization'
+        'phytomedicine_sw': 'Dawa ya mario na majani',
+        'prevention': 'Crop rotation, avoid overhead irrigation',
+        'prevention_sw': 'Mzunguko wa mazao, epuka kumwagilia kwa kunyeshea',
+        'drugs': [
+            {'name': 'Copper hydroxide', 'name_sw': 'Hidroksidi ya Shaba', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Every 7 days', 'frequency_sw': 'Kila siku 7'},
+            {'name': 'Mancozeb', 'name_sw': 'Mancozeb', 'dosage': '2g per liter', 'dosage_sw': '2g kwa lita', 'frequency': 'Weekly', 'frequency_sw': 'Kila wiki'}
+        ]
     }
 }
 
-# ── Swahili translations for disease content ─────────────────────────────────
-disease_info_sw = {
-    'Apple___Apple_scab': {
-        'treatment': 'Piga dawa ya shaba au salfa. Kata matawi yaliyoathirika na angamiza majani yaliyoanguka.',
-        'phytomedicine': 'Dawa ya mafuta ya neem (Azadirachta indica) kila siku 10',
-        'prevention': 'Panda aina zinazostahimili ugonjwa, weka nafasi kati ya miti, ondoa takataka za mmea'
-    },
-    'Apple___Black_rot': {
-        'treatment': 'Ondoa matunda yaliyokauka na matawi yaliyoathirika. Piga dawa ya captan.',
-        'phytomedicine': 'Dawa ya vitunguu (Allium sativum) na pilipili iliyosagwa',
-        'prevention': 'Epuka kuumiza mti, safisha bustani vizuri mara kwa mara'
-    },
-    'Apple___Cedar_apple_rust': {
-        'treatment': 'Piga dawa mapema majira ya masika. Kata mimea ya juniper iliyo karibu.',
-        'phytomedicine': 'Mchanganyiko wa soda ya kuoka (kijiko 1 kwa lita) na mafuta ya kilimo',
-        'prevention': 'Panda aina zinazostahimili, ondoa mimea mbadala ndani ya kilomita 2'
-    },
-    'Apple___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Piga dawa ya kinga ya mafuta ya neem kila wiki 2',
-        'prevention': 'Dumisha lishe na umwagiliaji sahihi, kata matawi mara kwa mara'
-    },
-    'Blueberry___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Dawa ya jani la aloe vera kama mbolea ya majani',
-        'prevention': 'Dumisha tindikali ya udongo (pH 4.0-5.0), mulch sahihi'
-    },
-    'Cherry_(including_sour)___Powdery_mildew': {
-        'treatment': 'Piga dawa ya salfa au potasiamu bicarbonate',
-        'phytomedicine': 'Dawa ya maziwa (sehemu 1 maziwa kwa sehemu 9 maji) kila wiki',
-        'prevention': 'Boresha mzunguko wa hewa, epuka umwagiliaji wa juu'
-    },
-    'Cherry_(including_sour)___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Chai ya mboji kama mbolea ya udongo kila mwezi',
-        'prevention': 'Kata matawi mara kwa mara, mbolea ya kusawazisha'
-    },
-    'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot': {
-        'treatment': 'Piga dawa yenye azoxystrobin au propiconazole',
-        'phytomedicine': 'Dawa ya mmea wa nettle uliochanganywa kwa uchachushaji (Urtica dioica)',
-        'prevention': 'Pinda mazao, aina zinazostahimili, nafasi sahihi kati ya mimea'
-    },
-    'Corn_(maize)___Common_rust_': {
-        'treatment': 'Piga dawa ya triazole wakati ugonjwa unaanza',
-        'phytomedicine': 'Dawa ya majani ya Lantana camara iliyonyunyiziwa',
-        'prevention': 'Panda mapema, aina zinazostahimili, mbolea ya kusawazisha'
-    },
-    'Corn_(maize)___Northern_Leaf_Blight': {
-        'treatment': 'Piga dawa ya chlorothalonil au mancozeb',
-        'phytomedicine': 'Dawa ya majani ya Tithonia diversifolia (maua ya Meksiko)',
-        'prevention': 'Pinda mazao, lima udongo kuzika mabaki ya mazao'
-    },
-    'Corn_(maize)___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Dawa za mmea zilizochachushwa kwa afya ya udongo',
-        'prevention': 'Nafasi sahihi, palilia kwa wakati, pinda mazao'
-    },
-    'Grape___Black_rot': {
-        'treatment': 'Piga dawa mapema msimu, ondoa nyenzo zilizoathirika',
-        'phytomedicine': 'Dawa ya majani ya papai iliyochachushwa',
-        'prevention': 'Kata matawi, simamia msitu, ondoa matunda yaliyokauka'
-    },
-    'Grape___Esca_(Black_Measles)': {
-        'treatment': 'Kata miti iliyoathirika, hakuna dawa nzuri ya kemikali',
-        'phytomedicine': 'Dawa ya vitunguu na tangawizi',
-        'prevention': 'Epuka kuumiza mti wakati wa kukata, tumia zana safi'
-    },
-    'Grape___Leaf_blight_(Isariopsis_Leaf_Spot)': {
-        'treatment': 'Piga dawa ya shaba wakati wa mvua',
-        'phytomedicine': 'Dawa ya majani ya Ocimum gratissimum (mnanaa wa Afrika)',
-        'prevention': 'Boresha mzunguko wa hewa, epuka umwagiliaji wa juu'
-    },
-    'Grape___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Dawa ya mwani baharini kama mbolea ya majani',
-        'prevention': 'Weka msalaba sahihi, lishe ya kusawazisha'
-    },
-    'Orange___Haunglongbing_(Citrus_greening)': {
-        'treatment': 'Ondoa miti iliyoathirika, dhibiti wadudu wa psyllid',
-        'phytomedicine': 'Mafuta ya neem kudhibiti psyllid',
-        'prevention': 'Panda miche isiyoathirika, fuatilia wadudu'
-    },
-    'Peach___Bacterial_spot': {
-        'treatment': 'Piga dawa ya shaba wakati wa usingizi wa mmea, streptomycin wakati wa kukua',
-        'phytomedicine': 'Dawa ya chai ya mkia wa farasi (Equisetum arvense)',
-        'prevention': 'Panda aina zinazostahimili, epuka umwagiliaji wa juu'
-    },
-    'Peach___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Chai ya majani ya comfrey kama mbolea ya majani',
-        'prevention': 'Kata matawi sahihi, mbolea ya kusawazisha'
-    },
-    'Pepper,_bell___Bacterial_spot': {
-        'treatment': 'Piga dawa ya bakteria ya shaba, epuka kufanya kazi na mimea yenye unyevu',
-        'phytomedicine': 'Dawa ya maua ya African marigold (Tagetes minuta) iliyochachushwa',
-        'prevention': 'Tumia mbegu zisizokuwa na ugonjwa, pinda mazao'
-    },
-    'Pepper,_bell___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Gel ya aloe vera iliyochanganywa na maji kama mbolea ya majani',
-        'prevention': 'Nafasi sahihi, mulch, umwagiliaji wa matone'
-    },
-    'Potato___Early_blight': {
-        'treatment': 'Piga dawa ya chlorothalonil au mancozeb',
-        'phytomedicine': 'Dawa ya mmea wa nettle uliyochachushwa',
-        'prevention': 'Pinda mazao, mbolea sahihi, ondoa mabaki ya mazao'
-    },
-    'Potato___Late_blight': {
-        'treatment': 'Piga dawa ya metalaxyl au chlorothalonil, angamiza mimea iliyoathirika sana',
-        'phytomedicine': 'Dawa ya chai ya mkia wa farasi kila siku 5',
-        'prevention': 'Panda aina zinazostahimili, epuka umwagiliaji wa juu'
-    },
-    'Potato___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Chai ya mboji kama mbolea ya udongo',
-        'prevention': 'Tunza vizuri, pinda mazao'
-    },
-    'Raspberry___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Dawa ya ngozi ya ndizi iliyochachushwa',
-        'prevention': 'Weka msalaba sahihi, kata matawi mara kwa mara'
-    },
-    'Soybean___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Vimelea vya Rhizobium kwa kurekebisha nitrojeni',
-        'prevention': 'Nafasi sahihi, pinda mazao'
-    },
-    'Squash___Powdery_mildew': {
-        'treatment': 'Piga dawa ya salfa au potasiamu bicarbonate',
-        'phytomedicine': 'Dawa ya maziwa (uwiano 1:9 na maji) kila wiki',
-        'prevention': 'Aina zinazostahimili, nafasi sahihi'
-    },
-    'Strawberry___Leaf_scorch': {
-        'treatment': 'Piga dawa ya captan au thiophanate-methyl',
-        'phytomedicine': 'Dawa ya majani ya comfrey iliyochachushwa',
-        'prevention': 'Ondoa majani yaliyoathirika, boresha mzunguko wa hewa'
-    },
-    'Strawberry___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Dawa ya mwani baharini kama mbolea ya majani',
-        'prevention': 'Mulch sahihi, umwagiliaji wa matone'
-    },
-    'Tomato___Bacterial_spot': {
-        'treatment': 'Piga dawa ya bakteria ya shaba, epuka kufanya kazi na mimea yenye unyevu',
-        'phytomedicine': 'Dawa ya vitunguu na pilipili iliyonyunyiziwa',
-        'prevention': 'Tumia mbegu zisizokuwa na ugonjwa, pinda mazao'
-    },
-    'Tomato___Early_blight': {
-        'treatment': 'Piga dawa ya chlorothalonil, ondoa majani ya chini',
-        'phytomedicine': 'Dawa ya mmea wa nettle uliyochachushwa',
-        'prevention': 'Pinda mazao, nafasi sahihi kati ya mimea'
-    },
-    'Tomato___Late_blight': {
-        'treatment': 'Piga dawa ya chlorothalonil, angamiza mimea iliyoathirika',
-        'phytomedicine': 'Dawa ya chai ya mkia wa farasi kila siku 5',
-        'prevention': 'Aina zinazostahimili, epuka kumwagilia kutoka juu'
-    },
-    'Tomato___Leaf_Mold': {
-        'treatment': 'Boresha mzunguko wa hewa, piga dawa ya chlorothalonil',
-        'phytomedicine': 'Mchanganyiko wa soda ya kuoka (kijiko 1 kwa lita)',
-        'prevention': 'Nafasi sahihi, uingizaji hewa wa greenhouse'
-    },
-    'Tomato___Septoria_leaf_spot': {
-        'treatment': 'Piga dawa ya shaba, ondoa majani yaliyoathirika',
-        'phytomedicine': 'Dawa ya maua ya African marigold iliyochachushwa',
-        'prevention': 'Pinda mazao, epuka umwagiliaji wa juu'
-    },
-    'Tomato___Spider_mites Two-spotted_spider_mite': {
-        'treatment': 'Piga dawa ya kuua utitiri au sabuni ya wadudu',
-        'phytomedicine': 'Mafuta ya neem yaliyochanganywa na sabuni ya maji',
-        'prevention': 'Dumisha unyevu, palilia magugu'
-    },
-    'Tomato___Target_Spot': {
-        'treatment': 'Piga dawa ya chlorothalonil, ondoa nyenzo zilizoathirika',
-        'phytomedicine': 'Dawa ya majani ya papai iliyochachushwa',
-        'prevention': 'Pinda mazao, aina zinazostahimili'
-    },
-    'Tomato___Tomato_Yellow_Leaf_Curl_Virus': {
-        'treatment': 'Dhibiti wadudu wa nzi weupe, ondoa mimea iliyoathirika',
-        'phytomedicine': 'Mafuta ya neem kudhibiti nzi weupe',
-        'prevention': 'Aina zinazostahimili, mulch inayoakisi mwanga'
-    },
-    'Tomato___Tomato_mosaic_virus': {
-        'treatment': 'Hakuna dawa ya kuponya, ondoa mimea iliyoathirika',
-        'phytomedicine': 'Hakuna - zingatia kuzuia',
-        'prevention': 'Tumia mbegu zilizoidhinishwa, safisha zana'
-    },
-    'Tomato___healthy': {
-        'treatment': 'Hakuna matibabu yanayohitajika',
-        'phytomedicine': 'Chai ya mboji kama dawa ya majani',
-        'prevention': 'Weka msalaba sahihi, mbolea ya kusawazisha'
-    },
+# Default info for healthy plants
+healthy_info = {
+    'scientific_name': 'Healthy plant',
+    'swahili_name': 'Mmea wenye afya',
+    'treatment': 'No treatment required. Your plant is healthy!',
+    'treatment_sw': 'Hakuna matibabu yanayohitajika. Mmea wako una afya!',
+    'phytomedicine': 'Preventive neem oil sprays every 2 weeks',
+    'phytomedicine_sw': 'Dawa ya kuzuia ya mafuta ya Mwarobaini kila wiki 2',
+    'prevention': 'Maintain proper nutrition and irrigation, regular pruning',
+    'prevention_sw': 'Endelea na lishe bora na umwagiliaji, kata mara kwa mara',
+    'drugs': []
 }
 
+def get_disease_info(disease_key, language='en'):
+    """Get disease information in specified language"""
+    if 'healthy' in disease_key.lower():
+        info = healthy_info.copy()
+    else:
+        info = disease_info.get(disease_key, {})
+    
+    if language == 'sw':
+        return {
+            'scientific_name': info.get('scientific_name', 'Haijulikani'),
+            'swahili_name': info.get('swahili_name', 'Ugonjwa'),
+            'treatment': info.get('treatment_sw', info.get('treatment', 'Wasiliana na mtaalamu wa kilimo')),
+            'phytomedicine': info.get('phytomedicine_sw', info.get('phytomedicine', 'Hakuna dawa ya asili iliyopendekezwa')),
+            'prevention': info.get('prevention_sw', info.get('prevention', 'Endelea na mazoea mazuri ya kilimo')),
+            'drugs': info.get('drugs', [])
+        }
+    else:
+        return {
+            'scientific_name': info.get('scientific_name', 'Unknown'),
+            'swahili_name': info.get('swahili_name', 'Disease'),
+            'treatment': info.get('treatment', 'Consult agricultural expert'),
+            'phytomedicine': info.get('phytomedicine', 'Not specified'),
+            'prevention': info.get('prevention', 'Practice good crop management'),
+            'drugs': info.get('drugs', [])
+        }
 
-@app.route('/set-lang/<lang>')
-def set_lang(lang):
-    if lang in ('en', 'sw'):
-        session['lang'] = lang
-    return redirect(request.referrer or url_for('index'))
+# ============== HELPER FUNCTIONS ==============
+def ensure_payment_confirmation_column():
+    try:
+        inspector = inspect(db.engine)
+        payment_columns = {column['name'] for column in inspector.get_columns('payments')}
+        if 'confirmation_sent' not in payment_columns:
+            db.session.execute(text(
+                'ALTER TABLE payments ADD COLUMN confirmation_sent BOOLEAN NOT NULL DEFAULT 0'
+            ))
+            db.session.commit()
+    except Exception as exc:
+        app.logger.warning(f'Could not ensure payment confirmation column: {exc}')
 
+def ensure_user_profile_photo_column():
+    try:
+        inspector = inspect(db.engine)
+        user_columns = {column['name'] for column in inspector.get_columns('users')}
+        if 'profile_photo' not in user_columns:
+            db.session.execute(text(
+                'ALTER TABLE users ADD COLUMN profile_photo VARCHAR(200)'
+            ))
+            db.session.commit()
+    except Exception as exc:
+        app.logger.warning(f'Could not ensure user profile photo column: {exc}')
 
-@app.context_processor
-def inject_lang():
-    return {'lang': session.get('lang', 'en')}
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
+with app.app_context():
+    ensure_payment_confirmation_column()
+    ensure_user_profile_photo_column()
 
+def is_mpesa_available():
+    return MPESA_AVAILABLE and mpesa is not None
 
-
-
-# Load Keras model
-import os
-from tensorflow.keras.models import load_model
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'webp'}
 
 def load_keras_model():
     model_path = os.path.join(os.path.dirname(__file__), "trained_plant_model.keras")
-    
-    # Print immediately so you know loading started
     print("Loading Keras model… please wait, this may take 20–30 seconds")
-    
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at: {model_path}")
-    
     model = load_model(model_path)
-    print("Model loaded successfully!")  # Confirmation when done
+    print("Model loaded successfully!")
     return model
 
 try:
     model = load_keras_model()
     print("Keras model loaded successfully")
-
 except Exception as e:
     print(f"Error loading Keras model: {e}")
     exit(1)
-
-
-# --- Helper Functions ---
-def allowed_file(filename):
-    return '.' in filename and \
-        filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'webp'}
-
 
 def predict_disease(img_path, plant_prefix):
     img = image.load_img(img_path, target_size=(128, 128))
@@ -839,7 +495,6 @@ def predict_disease(img_path, plant_prefix):
     predictions = model.predict(img_array)
     probabilities = predictions[0]
 
-    # Get indices of diseases for the selected plant only
     valid_indices = [i for i, disease in enumerate(disease_classes)
                      if disease.startswith(plant_prefix)]
 
@@ -847,7 +502,6 @@ def predict_disease(img_path, plant_prefix):
         top_disease = f"{plant_prefix}___healthy"
         confidence = 1.0
     else:
-        # Get the highest probability among valid diseases
         valid_probs = probabilities[valid_indices]
         max_idx = np.argmax(valid_probs)
         top_idx = valid_indices[max_idx]
@@ -856,560 +510,30 @@ def predict_disease(img_path, plant_prefix):
 
     return top_disease, float(confidence)
 
-
-# --- Flask Routes ---
-
-# Other routes...
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user and check_password_hash(user.password_hash, form.password.data):  # Changed to password_hash
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        flash('Invalid email or password')
-    return render_template('login.html', form=form)
-
-
-def _clear_password_reset_session():
-    session.pop('password_reset_email', None)
-    session.pop('password_reset_otp', None)
-    session.pop('password_reset_expires', None)
-
-
-@app.route('/forgot-password', methods=['GET', 'POST'])
-def forgot_password():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-
-    now_ts = datetime.utcnow().timestamp()
-    expires_ts = float(session.get('password_reset_expires', 0) or 0)
-
-    # Drop stale OTP session data to prevent confusing states.
-    if expires_ts and now_ts > expires_ts:
-        _clear_password_reset_session()
-
-    if request.method == 'POST':
-        action = request.form.get('action', '')
-
-        if action == 'send_otp':
-            email = request.form.get('email', '').strip().lower()
-            user = User.query.filter_by(email=email).first()
-
-            if not user:
-                flash('No account found with that email.', 'danger')
-                return redirect(url_for('forgot_password'))
-
-            otp = ''.join(str(random.randint(0, 9)) for _ in range(6))
-            session['password_reset_email'] = email
-            session['password_reset_otp'] = otp
-            session['password_reset_expires'] = (datetime.utcnow() + timedelta(minutes=10)).timestamp()
-
-            msg = Message(
-                'Your Password Reset OTP',
-                recipients=[email],
-                body=(
-                    f'Your DeepMind Dynamics password reset OTP is: {otp}\n\n'
-                    'This OTP expires in 10 minutes.'
-                )
-            )
-
-            try:
-                mail.send(msg)
-                flash('OTP sent to your email. Enter it below to reset your password.', 'success')
-            except Exception as exc:
-                app.logger.error(f'Password reset email failed: {exc}')
-                _clear_password_reset_session()
-                flash('Could not send OTP email right now. Please try again later.', 'danger')
-
-            return redirect(url_for('forgot_password'))
-
-        if action == 'reset_password':
-            otp_input = request.form.get('otp', '').strip()
-            new_password = request.form.get('new_password', '').strip()
-            confirm_password = request.form.get('confirm_password', '').strip()
-
-            reset_email = session.get('password_reset_email')
-            stored_otp = session.get('password_reset_otp')
-            expires = float(session.get('password_reset_expires', 0) or 0)
-
-            if not reset_email or not stored_otp or not expires:
-                flash('Start password reset again to get a valid OTP.', 'warning')
-                return redirect(url_for('forgot_password'))
-
-            if datetime.utcnow().timestamp() > expires:
-                _clear_password_reset_session()
-                flash('OTP expired. Request a new one.', 'warning')
-                return redirect(url_for('forgot_password'))
-
-            if otp_input != stored_otp:
-                flash('Invalid OTP code.', 'danger')
-                return redirect(url_for('forgot_password'))
-
-            if len(new_password) < 6:
-                flash('Password must be at least 6 characters.', 'danger')
-                return redirect(url_for('forgot_password'))
-
-            if new_password != confirm_password:
-                flash('Passwords do not match.', 'danger')
-                return redirect(url_for('forgot_password'))
-
-            user = User.query.filter_by(email=reset_email).first()
-            if not user:
-                _clear_password_reset_session()
-                flash('Account not found. Please register first.', 'danger')
-                return redirect(url_for('register'))
-
-            user.set_password(new_password)
-            db.session.commit()
-            _clear_password_reset_session()
-            flash('Password reset successful. Please log in.', 'success')
-            return redirect(url_for('login'))
-
-        flash('Invalid password reset action.', 'danger')
-        return redirect(url_for('forgot_password'))
-
-    reset_email = session.get('password_reset_email')
-    otp_pending = bool(
-        reset_email and
-        session.get('password_reset_otp') and
-        float(session.get('password_reset_expires', 0) or 0) > datetime.utcnow().timestamp()
-    )
-    return render_template('forgot_password.html', otp_pending=otp_pending, reset_email=reset_email)
-
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('index'))
-
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    predictions = Prediction.query.filter_by(user_id=current_user.id).all()
-    return render_template('dashboard.html', user=current_user, predictions=predictions)
-
-
-@app.route('/send_verification', methods=['POST'])
-def send_verification():
-    if request.method == 'POST':
-        try:
-            email = request.form.get('email')
-
-            if not email:
-                return jsonify({'success': False, 'message': 'Email is required'}), 400
-
-            if User.query.filter_by(email=email).first():
-                return jsonify({'success': False, 'message': 'Email already registered'}), 400
-
-            # Generate a simple 6-digit code
-            verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
-
-            # Store in session (with expiration)
-            session['verification_email'] = email
-            session['verification_code'] = verification_code
-            session['verification_expires'] = datetime.now().timestamp() + 3600  # 1 hour expiration
-
-            # Send email with just the code
-            msg = Message(
-                'Your Verification Code',
-                recipients=[email],
-                body=f'Your verification code is: {verification_code}\n\nThis code expires in 1 hour.'
-            )
-
-            try:
-                mail.send(msg)
-                return jsonify({
-                    'success': True,
-                    'message': 'Verification code sent to your email'
-                })
-            except Exception as mail_error:
-                app.logger.warning(f"Email send failed, returning code directly: {mail_error}")
-                # Fallback: return the code directly so user can still register
-                return jsonify({
-                    'success': True,
-                    'message': f'Email service unavailable. Use this code: {verification_code}'
-                })
-
-        except Exception as e:
-            app.logger.error(f"Verification error: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'Error: {str(e)}'
-            }), 500
-
-
-@app.route('/verify_email/<token>')
-def verify_email(token):
-    try:
-        email = serializer.loads(token, salt='email-verify', max_age=3600)  # 1 hour expiration
-
-        # Debugging output
-        print(f"Email from token: {email}")
-        print(f"Session email: {session.get('verification_email')}")
-
-        if email == session.get('verification_email'):
-            session['email_verified'] = True
-            flash('Email verified successfully!', 'success')
-            return redirect(url_for('register'))
-        else:
-            flash('Email verification failed - session mismatch', 'danger')
-    except Exception as e:
-        print(f"Verification error: {str(e)}")  # Debug output
-        flash('Invalid or expired verification link', 'danger')
-
-    return redirect(url_for('register'))
-
-
-
-# app.py
-@app.route('/select-plant', methods=['GET', 'POST'])
-@login_required
-def select_plant():
-    # Check payment status first
-    active_payment = Payment.query.filter(
-        Payment.user_id == current_user.id,
-        Payment.status == 'paid',
-        or_(
-            Payment.expiry_date.is_(None),
-            Payment.expiry_date >= datetime.utcnow()
-        )
-    ).first()
-
-    if not active_payment:
-        flash('Please complete payment to access predictions', 'warning')
-        return redirect(url_for('payment'))
-
-    if request.method == 'POST':
-        plant_type = request.form.get('plant_type')
-        if plant_type:
-            return redirect(url_for('predict', plant_type=plant_type))
-        flash('Please select a plant type', 'error')
-
-    plants = [
-        {'id': 'apple', 'name': 'Apple'},
-        {'id': 'blueberry', 'name': 'Blueberry'},
-        {'id': 'cherry', 'name': 'Cherry'},
-        {'id': 'corn', 'name': 'Corn'},
-        {'id': 'grape', 'name': 'Grape'},
-        {'id': 'orange', 'name': 'Orange'},
-        {'id': 'peach', 'name': 'Peach'},
-        {'id': 'pepper', 'name': 'Pepper'},
-        {'id': 'potato', 'name': 'Potato'},
-        {'id': 'raspberry', 'name': 'Raspberry'},
-        {'id': 'soybean', 'name': 'Soybean'},
-        {'id': 'squash', 'name': 'Squash'},
-        {'id': 'strawberry', 'name': 'Strawberry'},
-        {'id': 'tomato', 'name': 'Tomato'}
+def generate_prevention_events(disease_name):
+    """Generate prevention schedule based on disease type"""
+    base_events = [
+        {"title": "Apply Initial Treatment / Tumia Matibabu ya Kwanza", "days": 0, "type": "treatment"},
+        {"title": "First Follow-up Inspection / Ukaguzi wa Kwanza", "days": 3, "type": "inspection"},
+        {"title": "Apply Preventive Spray / Paka Dawa ya Kuzuia", "days": 7, "type": "treatment"},
+        {"title": "Soil Nutrient Check / Angalia Rutuba ya Udongo", "days": 14, "type": "maintenance"},
+        {"title": "Final Evaluation / Tathmini ya Mwisho", "days": 21, "type": "inspection"}
     ]
 
-    return render_template('select_plant.html',
-                           plants=plants,
-                           payment_success=request.args.get('payment_success'))
-
-
-@app.route('/payment', methods=['GET', 'POST'])
-@login_required
-def payment():
-    form = PaymentForm()
-    if form.validate_on_submit():
-        try:
-            # Test API connectivity first
-            if not mpesa.check_api_status():
-                app.logger.error("M-Pesa API unreachable")
-                flash('M-Pesa service is currently down. Please try again later.', 'danger')
-                return redirect(url_for('payment'))
-
-            plan = form.payment_plan.data
-            amount = 15 if plan == 'monthly' else 1
-            phone = form.phone_number.data
-
-            # Process payment
-            response = mpesa.stk_push(
-                phone_number=f"254{phone[-9:]}",
-                amount=amount,
-                account_reference=f"USER{current_user.id}",
-                transaction_desc="PlantMD Subscription"
-            )
-
-            if response.get('success'):
-                # Calculate expiry date
-                if plan == 'monthly':
-                    expiry_date = datetime.utcnow() + timedelta(days=30)
-                else:
-                    expiry_date = datetime.utcnow() + timedelta(days=7)
-
-                # Create payment record with pending status
-                payment = Payment(
-                    user_id=current_user.id,
-                    payment_type=plan,
-                    amount=amount,
-                    status='pending',
-                    mpesa_receipt=response.get('checkout_request_id'),
-                    phone_number=phone,
-                    expiry_date=expiry_date
-                )
-                db.session.add(payment)
-                db.session.commit()
-
-                # Store payment info in session for later email sending
-                session['pending_payment_id'] = payment.id
-                session['payment_plan'] = plan
-                session['payment_amount'] = amount
-                session['payment_expiry'] = expiry_date.isoformat()
-
-                flash('Payment initiated successfully! Please check your phone to complete the transaction.', 'success')
-                return render_template(
-                    'payment_processing.html',
-                    payment=payment,
-                    redirect_url=url_for('payment_status'),
-                    delay=30000,
-                    email_sent=payment.confirmation_sent,
-                )
-
-            # Handle specific error codes
-            error_code = response.get('errorCode')
-            if error_code == '400.002.02':
-                flash('Invalid phone number format. Use 07... or 2547...', 'danger')
-            elif error_code == '400.001.01':
-                flash('Insufficient balance in your M-Pesa account', 'warning')
-            else:
-                flash('Payment initiation failed. Please try again.', 'danger')
-
-        except requests.exceptions.ConnectionError:
-            app.logger.error("M-Pesa API connection failed")
-            flash('Network error connecting to M-Pesa. Check your internet.', 'danger')
-        except requests.exceptions.Timeout:
-            app.logger.error("M-Pesa API timeout")
-            flash('Payment service timed out. Please try again.', 'danger')
-        except Exception as e:
-            app.logger.error(f"Payment error: {str(e)}", exc_info=True)
-            flash('An unexpected error occurred. Our team has been notified.', 'danger')
-
-    return render_template('payment.html', form=form)
-
-
-@app.route('/process-payment', methods=['POST'])
-@login_required
-def process_payment():
-    return payment()
-
-
-@app.route('/mpesa-callback', methods=['POST'])
-def mpesa_callback():
-    data = request.get_json()
-
-    # Extract relevant info from callback
-    checkout_request_id = data.get('Body', {}).get('stkCallback', {}).get('CheckoutRequestID')
-    result_code = data.get('Body', {}).get('stkCallback', {}).get('ResultCode')
-
-    # Find the payment record
-    payment = Payment.query.filter_by(mpesa_receipt=checkout_request_id).first()
-
-    if payment:
-        if result_code == 0:
-            # Payment successful
-            payment.status = 'paid'
-
-            # Update with actual M-Pesa receipt number
-            callback_metadata = data.get('Body', {}).get('stkCallback', {}).get('CallbackMetadata', {}).get('Item', [])
-            for item in callback_metadata:
-                if item.get('Name') == 'MpesaReceiptNumber':
-                    payment.mpesa_receipt = item.get('Value')
-                    break
-
-            db.session.commit()
-
-            # Send payment confirmation email
-            try:
-                expiry_date = payment.expiry_date
-                if not expiry_date:
-                    # Calculate expiry date if not set
-                    if payment.payment_type == 'monthly':
-                        expiry_date = datetime.utcnow() + timedelta(days=30)
-                    else:
-                        expiry_date = datetime.utcnow() + timedelta(days=7)
-                    payment.expiry_date = expiry_date
-                    db.session.commit()
-
-                email_sent = send_payment_confirmation_email(
-                    user=payment.payer,
-                    payment_plan=payment.payment_type,
-                    amount=payment.amount,
-                    expiry_date=expiry_date
-                )
-
-                if email_sent:
-                    payment.confirmation_sent = True
-                    db.session.commit()
-                    app.logger.info(f"Payment confirmation email sent for payment {payment.id}")
-                else:
-                    app.logger.warning(f"Failed to send payment confirmation email for payment {payment.id}")
-
-            except Exception as e:
-                app.logger.error(f"Error sending payment confirmation email: {str(e)}")
-
-        else:
-            # Payment failed
-            payment.status = 'failed'
-            db.session.commit()
-
-    return jsonify({'status': 'received'})
-# ====== Existing code ======
-from datetime import datetime, timedelta
-from flask import render_template, request, redirect, url_for, flash, session, jsonify
-
-
-# ... other imports ...
-
-# ====== Add this with your other routes ======
-@app.route('/payment-status')
-@login_required
-def payment_status():
-    try:
-        # Query the user's payment history - newest first
-        payments_query = Payment.query.filter_by(user_id=current_user.id)
-        if hasattr(Payment, 'created_at'):
-            payments_query = payments_query.order_by(Payment.created_at.desc())
-        else:
-            payments_query = payments_query.order_by(Payment.id.desc())
-
-        payments = payments_query.all()
-
-        current_time = datetime.utcnow()
-        latest_payment = payments[0] if payments else None
-        status_changed = False
-
-        # Reconcile only the newest pending payment to avoid hitting M-Pesa rate limits.
-        latest_pending = next((p for p in payments if p.status == 'pending' and p.mpesa_receipt), None)
-        if latest_pending:
-            try:
-                query_response = mpesa.query_stk_status(latest_pending.mpesa_receipt)
-                result_code = str(query_response.get('ResultCode', ''))
-
-                if result_code == '0':
-                    latest_pending.status = 'paid'
-                    if not latest_pending.expiry_date:
-                        latest_pending.expiry_date = (
-                            current_time + timedelta(days=30)
-                            if latest_pending.payment_type == 'monthly'
-                            else current_time + timedelta(days=7)
-                        )
-                    status_changed = True
-                elif result_code and result_code != '0':
-                    latest_pending.status = 'failed'
-                    status_changed = True
-
-            except Exception as exc:
-                app.logger.warning(f"Could not reconcile payment status for {latest_pending.id}: {exc}")
-
-        if status_changed:
-            db.session.commit()
-            payments = payments_query.all()
-            latest_payment = payments[0] if payments else None
-
-        # Send missing confirmation emails for newly paid payments.
-        email_sent_any = False
-        email_failed_any = False
-        for paid_payment in [p for p in payments if p.status == 'paid' and not p.confirmation_sent]:
-            try:
-                if not paid_payment.expiry_date:
-                    paid_payment.expiry_date = (
-                        current_time + timedelta(days=30)
-                        if paid_payment.payment_type == 'monthly'
-                        else current_time + timedelta(days=7)
-                    )
-
-                email_sent = send_payment_confirmation_email(
-                    user=paid_payment.payer,
-                    payment_plan=paid_payment.payment_type,
-                    amount=paid_payment.amount,
-                    expiry_date=paid_payment.expiry_date
-                )
-                paid_payment.confirmation_sent = bool(email_sent)
-                email_sent_any = email_sent_any or email_sent
-                email_failed_any = email_failed_any or (not email_sent)
-            except Exception as exc:
-                email_failed_any = True
-                app.logger.error(f"Error sending payment confirmation email for {paid_payment.id}: {exc}")
-
-        if email_sent_any or email_failed_any:
-            db.session.commit()
-            if email_sent_any:
-                flash('Payment confirmation email has been sent!', 'success')
-            if email_failed_any:
-                flash('Payment confirmed, but we could not send the confirmation email.', 'warning')
-
-        # Check active subscription from any paid, non-expired payment.
-        active_subscription = next(
-            (
-                p for p in payments
-                if p.status == 'paid' and p.expiry_date and p.expiry_date > current_time
-            ),
-            None
-        )
-
-        return render_template('payment_status.html',
-                               payments=payments,
-                               latest_payment=latest_payment,
-                               active_subscription=active_subscription,
-                               current_time=current_time)
-
-    except Exception as e:
-        app.logger.error(f"Error in payment_status: {str(e)}")
-        flash('Error loading payment status. Please try again.', 'danger')
-        return redirect(url_for('dashboard'))
-
-
-# Update your predict route to check payment
-from datetime import datetime, timedelta
-
-
-@app.route('/payment/status/<int:payment_id>')
-@login_required
-def check_payment_status(payment_id):
-    payment = Payment.query.get_or_404(payment_id)
-
-    if payment.user_id != current_user.id:
-        abort(403)
-
-    # In production, you would verify with M-Pesa API here
-    # For demo, we'll just return the current status
-    return jsonify({
-        'status': payment.status,
-        'receipt': payment.mpesa_receipt
-    })
-
-import glob
-
-
-@app.route('/payment/complete/<int:payment_id>')
-@login_required
-def payment_complete(payment_id):
-    payment = Payment.query.get_or_404(payment_id)
-
-    # Verify payment belongs to current user and is successful
-    if payment.user_id != current_user.id or payment.status != 'paid':
-        abort(403)
-
-    # Redirect to select_plant page instead of predict
-    flash('Payment successful! Please select a plant to analyze', 'success')
-    return redirect(url_for('select_plant'))
-
+    return [
+        {
+            "title": f"{event['title']} ({disease_name})",
+            "start": (datetime.now() + timedelta(days=event["days"])).strftime("%Y-%m-%d"),
+            "color": "#28a745" if event["type"] == "treatment" else
+            "#17a2b8" if event["type"] == "inspection" else
+            "#6c757d"
+        }
+        for event in base_events
+    ]
 
 def send_payment_confirmation_email(user, payment_plan, amount, expiry_date):
     """Send payment confirmation email to user"""
     try:
-        # Format the email content based on payment plan
         plan_name = "Monthly" if payment_plan == 'monthly' else "Weekly"
         duration = "30 days" if payment_plan == 'monthly' else "7 days"
 
@@ -1478,17 +602,9 @@ The PlantMD Team
             <div class="feature">✅ Unlimited plant disease detection</div>
             <div class="feature">✅ Detailed treatment recommendations</div>
             <div class="feature">✅ Phytomedicine (natural remedy) suggestions</div>
+            <div class="feature">✅ Drug recommendations with dosages</div>
             <div class="feature">✅ Prevention schedules and calendars</div>
             <div class="feature">✅ Community forum access</div>
-            <div class="feature">✅ County-specific disease alerts</div>
-
-            <h3>🎯 Getting Started</h3>
-            <ol>
-                <li>Visit the 'Select Plant' page</li>
-                <li>Choose the plant type you want to analyze</li>
-                <li>Upload clear images of plant leaves</li>
-                <li>Get instant disease detection and treatment plans</li>
-            </ol>
 
             <p>If you have any questions, please don't hesitate to contact our support team.</p>
 
@@ -1498,7 +614,6 @@ The PlantMD Team
         </div>
         <div class="footer">
             <p>Best regards,<br>The PlantMD Team</p>
-            <p><small>This is an automated email, please do not reply directly.</small></p>
         </div>
     </div>
 </body>
@@ -1520,198 +635,130 @@ The PlantMD Team
         app.logger.error(f"Failed to send payment confirmation email: {str(e)}")
         return False
 
-def generate_prevention_events(disease_name):
-    """Generate prevention schedule based on disease type"""
-    base_events = [
-        {"title": "Apply Initial Treatment", "days": 0, "type": "treatment"},
-        {"title": "First Follow-up Inspection", "days": 3, "type": "inspection"},
-        {"title": "Apply Preventive Spray", "days": 7, "type": "treatment"},
-        {"title": "Soil Nutrient Check", "days": 14, "type": "maintenance"},
-        {"title": "Final Evaluation", "days": 21, "type": "inspection"}
-    ]
+# ============== LANGUAGE ROUTE ==============
+@app.route('/set_language/<lang>')
+def set_language(lang):
+    """Set user's language preference and redirect back"""
+    if lang in ['en', 'sw']:
+        set_user_language(lang)
+        flash('Language updated' if lang == 'en' else 'Lugha imebadilishwa', 'success')
+    
+    # Get the return URL from query parameter or referrer
+    next_url = request.args.get('next')
+    if next_url:
+        return redirect(next_url)
+    
+    referrer = request.referrer
+    if referrer and referrer != request.url:
+        return redirect(referrer)
+    
+    return redirect(url_for('index'))
 
-    return [
-        {
-            "title": f"{event['title']} ({disease_name})",
-            "start": (datetime.now() + timedelta(days=event["days"])).strftime("%Y-%m-%d"),
-            "color": "#28a745" if event["type"] == "treatment" else
-            "#17a2b8" if event["type"] == "inspection" else
-            "#6c757d"
-        }
-        for event in base_events
-    ]
+# ============== FLASK ROUTES ==============
+@app.route('/')
+def index():
+    lang = get_user_language()
+    return render_template('index.html', t=t, lang=lang, current_lang=lang)
 
-
-@app.route('/post/new', methods=['GET', 'POST'])
-@login_required
-def create_post():
-    form = PostForm()
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    lang = get_user_language()
+    form = LoginForm()
     if form.validate_on_submit():
-        post = ForumPost(
-            title=form.title.data,
-            content=form.content.data,
-            disease=form.disease.data,
-            county_id=form.county.data,  # Use county_id instead of county
-            user_id=current_user.id
+        user = User.query.filter_by(email=form.email.data).first()
+        if user and check_password_hash(user.password_hash, form.password.data):
+            login_user(user)
+            flash(t('login_success', lang), 'success')
+            return redirect(url_for('dashboard'))
+        flash(t('invalid_credentials', lang), 'danger')
+    return render_template('login.html', form=form, t=t, lang=lang)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    lang = get_user_language()
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        if (session.get('verification_email') != form.email.data or
+                session.get('verification_code') != form.verification_code.data or
+                session.get('verification_expires', 0) < datetime.now().timestamp()):
+            flash(t('invalid_verification', lang), 'danger')
+            return redirect(url_for('register'))
+
+        county = County.query.get(form.county.data)
+        user = User(
+            username=form.username.data,
+            email=form.email.data,
+            county=county
         )
-        db.session.add(post)
+        user.set_password(form.password.data)
+
+        db.session.add(user)
         db.session.commit()
-        flash('Your post has been created!', 'success')
-        return redirect(url_for('forum'))
-    return render_template('create_post.html', form=form)
 
+        session.pop('verification_email', None)
+        session.pop('verification_code', None)
+        session.pop('verification_expires', None)
 
-@app.route('/forum/comment', methods=['POST'])
+        flash(t('registration_success', lang), 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html', form=form, t=t, lang=lang)
+
+@app.route('/logout')
 @login_required
-def create_forum_comment():
-    post_id = request.form.get('post_id')
-    content = request.form.get('content')
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
 
-    if not content or not post_id:
-        flash('Comment cannot be empty', 'danger')
-        return redirect(request.referrer)
-
-    new_comment = ForumComment(
-        content=content,
-        user_id=current_user.id,
-        post_id=post_id
-    )
-    db.session.add(new_comment)
-    db.session.commit()
-
-    flash('Your comment has been added!', 'success')
-    return redirect(request.referrer)
-
-@app.route('/forum/post/new', methods=['GET', 'POST'])
+@app.route('/dashboard')
 @login_required
-def create_forum_post():
-    form = PostForm()
-    if form.validate_on_submit():
-        post = ForumPost(
-            title=form.title.data,
-            content=form.content.data,
-            disease=form.disease.data,
-            county_id=form.county.data,  # Use county_id instead of county
-            user_id=current_user.id      # Explicitly set user_id
-        )
-        db.session.add(post)
+def dashboard():
+    lang = get_user_language()
+    predictions = Prediction.query.filter_by(user_id=current_user.id).all()
+    return render_template('dashboard.html', user=current_user, predictions=predictions, t=t, lang=lang)
+
+@app.route('/send_verification', methods=['POST'])
+def send_verification():
+    if request.method == 'POST':
         try:
-            db.session.commit()
-            flash('Post created successfully!', 'success')
-            return redirect(url_for('forum'))
+            email = request.form.get('email')
+            if not email:
+                return jsonify({'success': False, 'message': 'Email is required'}), 400
+
+            if User.query.filter_by(email=email).first():
+                return jsonify({'success': False, 'message': 'Email already registered'}), 400
+
+            verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+            session['verification_email'] = email
+            session['verification_code'] = verification_code
+            session['verification_expires'] = datetime.now().timestamp() + 3600
+
+            msg = Message(
+                'Your Verification Code',
+                recipients=[email],
+                body=f'Your verification code is: {verification_code}\n\nThis code expires in 1 hour.'
+            )
+
+            mail.send(msg)
+
+            return jsonify({
+                'success': True,
+                'message': 'Verification code sent to your email'
+            })
+
         except Exception as e:
-            db.session.rollback()
-            flash(f'Error creating post: {str(e)}', 'danger')
-    return render_template('create_post.html', form=form)
+            app.logger.error(f"Email error: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': 'Failed to send verification code'
+            }), 500
 
-from werkzeug.utils import secure_filename
-import os
-
-
-@app.route('/create_comment', methods=['POST'])
+@app.route('/select-plant', methods=['GET', 'POST'])
 @login_required
-def create_comment():
-    content = request.form.get('content', '').strip()
-    post_id = request.form.get('post_id')
-
-    if not content or not post_id:
-        flash('Comment cannot be empty', 'danger')
-        return redirect(request.referrer)
-
-    # Handle photo upload for comment
-    photo_filename = None
-    photo = request.files.get('photo')
-    if photo and photo.filename:
-        filename = secure_filename(
-            f"comment_{current_user.id}_{datetime.now().timestamp()}.{photo.filename.split('.')[-1]}"
-        )
-        photo_path = os.path.join(app.config['UPLOAD_FOLDER'], 'comment_photos', filename)
-        os.makedirs(os.path.dirname(photo_path), exist_ok=True)
-        photo.save(photo_path)
-        photo_filename = os.path.join('comment_photos', filename)
-
-    # Create new comment using ForumComment model
-    new_comment = ForumComment(
-        content=content,
-        user_id=current_user.id,
-        post_id=int(post_id),
-        photo=photo_filename
-    )
-    db.session.add(new_comment)
-    db.session.commit()
-    flash('Comment added successfully!', 'success')
-    return redirect(request.referrer)
-
-
-def get_kenyan_counties():
-    return [
-        ('Baringo', 'Baringo'),
-        ('Bomet', 'Bomet'),
-        ('Bungoma', 'Bungoma'),
-        ('Busia', 'Busia'),
-        ('Elgeyo-Marakwet', 'Elgeyo-Marakwet'),
-        ('Embu', 'Embu'),
-        ('Garissa', 'Garissa'),
-        ('Homa Bay', 'Homa Bay'),
-        ('Isiolo', 'Isiolo'),
-        ('Kajiado', 'Kajiado'),
-        ('Kakamega', 'Kakamega'),
-        ('Kericho', 'Kericho'),
-        ('Kiambu', 'Kiambu'),
-        ('Kilifi', 'Kilifi'),
-        ('Kirinyaga', 'Kirinyaga'),
-        ('Kisii', 'Kisii'),
-        ('Kisumu', 'Kisumu'),
-        ('Kitui', 'Kitui'),
-        ('Kwale', 'Kwale'),
-        ('Laikipia', 'Laikipia'),
-        ('Lamu', 'Lamu'),
-        ('Machakos', 'Machakos'),
-        ('Makueni', 'Makueni'),
-        ('Mandera', 'Mandera'),
-        ('Marsabit', 'Marsabit'),
-        ('Meru', 'Meru'),
-        ('Migori', 'Migori'),
-        ('Mombasa', 'Mombasa'),
-        ('Murang\'a', 'Murang\'a'),
-        ('Nairobi', 'Nairobi'),
-        ('Nakuru', 'Nakuru'),
-        ('Nandi', 'Nandi'),
-        ('Narok', 'Narok'),
-        ('Nyamira', 'Nyamira'),
-        ('Nyandarua', 'Nyandarua'),
-        ('Nyeri', 'Nyeri'),
-        ('Samburu', 'Samburu'),
-        ('Siaya', 'Siaya'),
-        ('Taita-Taveta', 'Taita-Taveta'),
-        ('Tana River', 'Tana River'),
-        ('Tharaka-Nithi', 'Tharaka-Nithi'),
-        ('Trans Nzoia', 'Trans Nzoia'),
-        ('Turkana', 'Turkana'),
-        ('Uasin Gishu', 'Uasin Gishu'),
-        ('Vihiga', 'Vihiga'),
-        ('Wajir', 'Wajir'),
-        ('West Pokot', 'West Pokot')
-    ]
-
-
-@app.route('/forum_posts')
-def forum_posts():
-    county = request.args.get('county', None)
-    query = ForumPost.query
-
-    if county:
-        county_obj = County.query.filter_by(name=county).first()
-        if county_obj:
-            query = query.filter_by(county_id=county_obj.id)
-
-    posts = query.order_by(ForumPost.created_at.desc()).all()
-    return render_template('forum.html', posts=posts, counties=get_kenyan_counties())
-
-@app.route('/predict', methods=['GET', 'POST'])
-@login_required
-def predict():
-    # Payment check
+def select_plant():
+    lang = get_user_language()
+    
     active_payment = Payment.query.filter(
         Payment.user_id == current_user.id,
         Payment.status == 'paid',
@@ -1722,14 +769,58 @@ def predict():
     ).first()
 
     if not active_payment:
-        flash('Please complete payment to access predictions', 'warning')
+        flash(t('payment_required', lang), 'warning')
         return redirect(url_for('payment'))
 
-    # Get plant_type from query parameters
+    if request.method == 'POST':
+        plant_type = request.form.get('plant_type')
+        if plant_type:
+            return redirect(url_for('predict', plant_type=plant_type, lang=lang))
+        flash(t('select_plant_error', lang), 'error')
+
+    plants = [
+        {'id': 'apple', 'name': 'Apple' if lang == 'en' else 'Tufaha'},
+        {'id': 'blueberry', 'name': 'Blueberry' if lang == 'en' else 'Blueberry'},
+        {'id': 'cherry', 'name': 'Cherry' if lang == 'en' else 'Cherry'},
+        {'id': 'corn', 'name': 'Corn' if lang == 'en' else 'Mahindi'},
+        {'id': 'grape', 'name': 'Grape' if lang == 'en' else 'Zabibu'},
+        {'id': 'orange', 'name': 'Orange' if lang == 'en' else 'Michungwa'},
+        {'id': 'peach', 'name': 'Peach' if lang == 'en' else 'Pichi'},
+        {'id': 'pepper', 'name': 'Pepper' if lang == 'en' else 'Pilipili'},
+        {'id': 'potato', 'name': 'Potato' if lang == 'en' else 'Viazi'},
+        {'id': 'raspberry', 'name': 'Raspberry' if lang == 'en' else 'Raspberry'},
+        {'id': 'soybean', 'name': 'Soybean' if lang == 'en' else 'Soya'},
+        {'id': 'squash', 'name': 'Squash' if lang == 'en' else 'Boga'},
+        {'id': 'strawberry', 'name': 'Strawberry' if lang == 'en' else 'Stroberi'},
+        {'id': 'tomato', 'name': 'Tomato' if lang == 'en' else 'Nyanya'}
+    ]
+
+    return render_template('select_plant.html',
+                           plants=plants,
+                           payment_success=request.args.get('payment_success'),
+                           t=t, lang=lang)
+@app.route('/predict', methods=['GET', 'POST'])
+@login_required
+def predict():
+    lang = get_user_language()
+    
+    active_payment = Payment.query.filter(
+        Payment.user_id == current_user.id,
+        Payment.status == 'paid',
+        or_(
+            Payment.expiry_date.is_(None),
+            Payment.expiry_date >= datetime.utcnow()
+        )
+    ).first()
+
+    if not active_payment:
+        flash(t('payment_required', lang), 'warning')
+        return redirect(url_for('payment'))
+
     plant_type = request.args.get('plant_type')
 
     if not plant_type:
-        flash('Please select a plant type first', 'error')
+        flash(t('select_plant_error', lang), 'error')
         return redirect(url_for('select_plant'))
 
     plant_mapping = {
@@ -1749,10 +840,9 @@ def predict():
         'tomato': 'Tomato'
     }
 
-    # Get and validate plant_type
     plant_type = request.args.get('plant_type', '').lower()
     if not plant_type or plant_type not in plant_mapping:
-        flash('Please select a valid plant type first', 'error')
+        flash(t('select_plant_error', lang), 'error')
         return redirect(url_for('select_plant'))
 
     plant_prefix = plant_mapping[plant_type]
@@ -1760,49 +850,52 @@ def predict():
 
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash('No file selected', 'error')
+            flash(t('no_file', lang), 'error')
             return redirect(request.url)
 
         file = request.files['file']
         if file.filename == '':
-            flash('No file selected', 'error')
+            flash(t('no_file', lang), 'error')
             return redirect(request.url)
 
         if file and allowed_file(file.filename):
             try:
-                # Save uploaded file
-                filename = secure_filename(file.filename)
-                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                # Create uploads directory if it doesn't exist
+                upload_folder = app.config['UPLOAD_FOLDER']
+                os.makedirs(upload_folder, exist_ok=True)
+                
+                # Generate unique filename
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                safe_filename = secure_filename(file.filename)
+                unique_filename = f"{timestamp}_{safe_filename}"
+                
+                # Save the file
+                filepath = os.path.join(upload_folder, unique_filename)
                 file.save(filepath)
-                web_image_path = 'uploads/' + filename
-
+                
+                # Store just the filename, not the full path
+                saved_filename = unique_filename
+                
                 # Make prediction
                 top_disease, confidence = predict_disease(filepath, plant_prefix)
 
                 if confidence < MIN_CONFIDENCE:
-                    flash('Prediction confidence too low - please upload a clearer image', 'warning')
+                    flash(t('low_confidence', lang), 'warning')
+                    # Clean up the uploaded file
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
                     return redirect(request.url)
 
-                # Get disease information
-                disease_data = disease_info.get(top_disease, {
-                    'scientific_name': 'Unknown',
-                    'treatment': 'Consult agricultural expert',
-                    'agrovet_medications': [],
-                    'phytomedicine': 'Not specified',
-                    'prevention': 'Practice good crop management'
-                })
-
-                # Apply Swahili translations if farmer has selected Swahili
-                if session.get('lang') == 'sw' and top_disease in disease_info_sw:
-                    sw = disease_info_sw[top_disease]
-                    disease_data = dict(disease_data)
-                    disease_data['treatment'] = sw.get('treatment', disease_data['treatment'])
-                    disease_data['phytomedicine'] = sw.get('phytomedicine', disease_data['phytomedicine'])
-                    disease_data['prevention'] = sw.get('prevention', disease_data['prevention'])
-
+                # Get disease info in selected language
+                disease_data = get_disease_info(top_disease, lang)
+                
                 # Format disease name for display
-                display_name = top_disease.replace(f"{plant_prefix}___", "").replace("_", " ")
+                if 'healthy' in top_disease.lower():
+                    display_name = 'Healthy' if lang == 'en' else 'Mwenye Afya'
+                else:
+                    display_name = top_disease.replace(f"{plant_prefix}___", "").replace("_", " ")
+                    if lang == 'sw' and disease_data.get('swahili_name'):
+                        display_name = disease_data['swahili_name']
 
                 # Generate prevention schedule
                 prevention_events = generate_prevention_events(display_name)
@@ -1822,31 +915,17 @@ def predict():
                         for f in sorted(os.listdir(disease_folder))
                         if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
                     ][:5]
-                disease_folder_display = os.path.join(
-                    'static',
-                    'disease pics',
-                    'Plant_leave_diseases_dataset_without_augmentation',
-                    top_disease,
-                ).replace('\\', '/')
 
                 # Get community forum posts
-                county_filter = request.args.get('county')
-                forum_query = ForumPost.query.filter(
+                forum_posts = ForumPost.query.filter(
                     ForumPost.disease.ilike(f"%{display_name}%")
-                )
-
-                if county_filter:
-                    forum_query = forum_query.filter_by(county=county_filter)
-
-                forum_posts = forum_query.order_by(
-                    ForumPost.created_at.desc()
-                ).limit(5).all()
+                ).order_by(ForumPost.created_at.desc()).limit(5).all()
 
                 counties = County.query.order_by(County.name).all()
 
                 # Save prediction to database
                 new_prediction = Prediction(
-                    image_path=filepath,
+                    image_path=saved_filename,  # Store just the filename
                     plant_type=plant_type,
                     disease=display_name,
                     scientific_name=disease_data['scientific_name'],
@@ -1864,38 +943,226 @@ def predict():
                                     disease_name=display_name,
                                     scientific_name=disease_data['scientific_name'],
                                     treatment=disease_data['treatment'],
-                                    agrovet_medications=disease_data.get('agrovet_medications', []),
+                                    drugs=disease_data.get('drugs', []),
                                     phytomedicine=disease_data['phytomedicine'],
                                     prevention=disease_data['prevention'],
                                     confidence=round(confidence * 100, 2),
-                                    user_image=web_image_path,
+                                    user_image=saved_filename,  # Pass just the filename
                                     example_images=example_images,
-                                    disease_folder_display=disease_folder_display,
                                     prevention_events=prevention_events,
                                     forum_posts=forum_posts,
-                                    counties=counties)
+                                    counties=counties,
+                                    t=t, lang=lang)
 
             except Exception as e:
+                app.logger.error(f"Error processing image: {str(e)}")
                 flash(f'Error processing image: {str(e)}', 'error')
                 return redirect(request.url)
 
-    return render_template('predict.html', plant_type=plant_type)
-# routes.py
-@app.route('/profile', methods=['GET', 'POST'])
+    return render_template('predict.html', plant_type=plant_type, t=t, lang=lang)
+@app.route('/uploads/<filename>')
+# In app.py, add this near your other routes (around line 700-800)
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files from the uploads folder"""
+    from flask import send_from_directory, abort
+    import os
+    
+    # Security: Prevent directory traversal
+    safe_filename = os.path.basename(filename)
+    
+    # Get the upload folder path
+    upload_folder = app.config.get('UPLOAD_FOLDER', 'static/uploads')
+    
+    # Build the full file path
+    filepath = os.path.join(upload_folder, safe_filename)
+    
+    # Check if file exists
+    if not os.path.exists(filepath):
+        abort(404)
+    
+    # Send the file
+    return send_from_directory(upload_folder, safe_filename)
+
+@app.route('/payment', methods=['GET', 'POST'])
 @login_required
-def profile():
-    form = CountyForm(obj=current_user)
+def payment():
+    lang = get_user_language()
+    form = PaymentForm()
     if form.validate_on_submit():
-        current_user.county = form.county.data
-        db.session.commit()
-        flash('Your county has been updated!', 'success')  # Added category
-        return redirect(url_for('profile'))
-    return render_template('profile.html', form=form)
+        try:
+            if not is_mpesa_available():
+                flash('M-Pesa is not configured on this server.', 'warning')
+                return redirect(url_for('payment'))
 
+            if not mpesa.check_api_status():
+                app.logger.error("M-Pesa API unreachable")
+                flash(t('mpesa_down', lang), 'danger')
+                return redirect(url_for('payment'))
 
-# routes.py
+            plan = form.payment_plan.data
+            amount = 15 if plan == 'monthly' else 1
+            phone = form.phone_number.data
+
+            response = mpesa.stk_push(
+                phone_number=f"254{phone[-9:]}",
+                amount=amount,
+                account_reference=f"USER{current_user.id}",
+                transaction_desc="PlantMD Subscription"
+            )
+
+            if response.get('success'):
+                if plan == 'monthly':
+                    expiry_date = datetime.utcnow() + timedelta(days=30)
+                else:
+                    expiry_date = datetime.utcnow() + timedelta(days=7)
+
+                payment = Payment(
+                    user_id=current_user.id,
+                    payment_type=plan,
+                    amount=amount,
+                    status='pending',
+                    mpesa_receipt=response.get('checkout_request_id'),
+                    phone_number=phone,
+                    expiry_date=expiry_date
+                )
+                db.session.add(payment)
+                db.session.commit()
+
+                session['pending_payment_id'] = payment.id
+                session['payment_plan'] = plan
+                session['payment_amount'] = amount
+                session['payment_expiry'] = expiry_date.isoformat()
+
+                flash(t('payment_initiated', lang), 'success')
+                return render_template(
+                    'payment_processing.html',
+                    payment=payment,
+                    redirect_url=url_for('payment_status'),
+                    delay=30000,
+                    email_sent=payment.confirmation_sent,
+                    t=t, lang=lang
+                )
+
+            error_code = response.get('errorCode')
+            if error_code == '400.002.02':
+                flash(t('invalid_phone', lang), 'danger')
+            elif error_code == '400.001.01':
+                flash(t('insufficient_balance', lang), 'warning')
+            else:
+                flash(t('payment_failed', lang), 'danger')
+
+        except requests.exceptions.ConnectionError:
+            app.logger.error("M-Pesa API connection failed")
+            flash(t('network_error', lang), 'danger')
+        except requests.exceptions.Timeout:
+            app.logger.error("M-Pesa API timeout")
+            flash(t('timeout_error', lang), 'danger')
+        except Exception as e:
+            app.logger.error(f"Payment error: {str(e)}", exc_info=True)
+            flash(t('unexpected_error', lang), 'danger')
+
+    return render_template('payment.html', form=form, t=t, lang=lang)
+
+@app.route('/payment-status')
+@login_required
+def payment_status():
+    lang = get_user_language()
+    
+    try:
+        payments_query = Payment.query.filter_by(user_id=current_user.id)
+        if hasattr(Payment, 'created_at'):
+            payments_query = payments_query.order_by(Payment.created_at.desc())
+        else:
+            payments_query = payments_query.order_by(Payment.id.desc())
+
+        payments = payments_query.all()
+        current_time = datetime.utcnow()
+        latest_payment = payments[0] if payments else None
+        status_changed = False
+
+        latest_pending = next((p for p in payments if p.status == 'pending' and p.mpesa_receipt), None)
+        if latest_pending and is_mpesa_available():
+            try:
+                query_response = mpesa.query_stk_status(latest_pending.mpesa_receipt)
+                result_code = str(query_response.get('ResultCode', ''))
+
+                if result_code == '0':
+                    latest_pending.status = 'paid'
+                    if not latest_pending.expiry_date:
+                        latest_pending.expiry_date = (
+                            current_time + timedelta(days=30)
+                            if latest_pending.payment_type == 'monthly'
+                            else current_time + timedelta(days=7)
+                        )
+                    status_changed = True
+                elif result_code and result_code != '0':
+                    latest_pending.status = 'failed'
+                    status_changed = True
+
+            except Exception as exc:
+                app.logger.warning(f"Could not reconcile payment status for {latest_pending.id}: {exc}")
+
+        if status_changed:
+            db.session.commit()
+            payments = payments_query.all()
+            latest_payment = payments[0] if payments else None
+
+        email_sent_any = False
+        email_failed_any = False
+        for paid_payment in [p for p in payments if p.status == 'paid' and not p.confirmation_sent]:
+            try:
+                if not paid_payment.expiry_date:
+                    paid_payment.expiry_date = (
+                        current_time + timedelta(days=30)
+                        if paid_payment.payment_type == 'monthly'
+                        else current_time + timedelta(days=7)
+                    )
+
+                email_sent = send_payment_confirmation_email(
+                    user=paid_payment.payer,
+                    payment_plan=paid_payment.payment_type,
+                    amount=paid_payment.amount,
+                    expiry_date=paid_payment.expiry_date
+                )
+                paid_payment.confirmation_sent = bool(email_sent)
+                email_sent_any = email_sent_any or email_sent
+                email_failed_any = email_failed_any or (not email_sent)
+            except Exception as exc:
+                email_failed_any = True
+                app.logger.error(f"Error sending payment confirmation email for {paid_payment.id}: {exc}")
+
+        if email_sent_any or email_failed_any:
+            db.session.commit()
+            if email_sent_any:
+                flash(t('email_sent', lang), 'success')
+            if email_failed_any:
+                flash(t('email_failed', lang), 'warning')
+
+        active_subscription = next(
+            (
+                p for p in payments
+                if p.status == 'paid' and p.expiry_date and p.expiry_date > current_time
+            ),
+            None
+        )
+
+        return render_template('payment_status.html',
+                               payments=payments,
+                               latest_payment=latest_payment,
+                               active_subscription=active_subscription,
+                               current_time=current_time,
+                               t=t, lang=lang)
+
+    except Exception as e:
+        app.logger.error(f"Error in payment_status: {str(e)}")
+        flash(t('status_error', lang), 'danger')
+        return redirect(url_for('dashboard'))
+
 @app.route('/forum')
 def forum():
+    lang = get_user_language()
     county_name = request.args.get('county')
     disease = request.args.get('disease')
 
@@ -1911,49 +1178,184 @@ def forum():
 
     posts = query.all()
 
-    # Get list of counties as (id, name) tuples for the dropdown
     county_choices = [(c.id, c.name) for c in County.query.order_by(County.name).all()]
-
-    # Get list of unique diseases for filter dropdown
     diseases = db.session.query(ForumPost.disease).distinct().all()
-    diseases = [d[0] for d in diseases if d[0]]  # Flatten and remove None
+    diseases = [d[0] for d in diseases if d[0]]
 
     return render_template(
         'forum.html',
         posts=posts,
-        counties=county_choices,  # Pass the prepared choices
+        counties=county_choices,
         diseases=diseases,
-        selected_county=county_name
+        selected_county=county_name,
+        t=t, lang=lang
     )
+
 @app.route('/forum/post/<int:post_id>')
 def view_post(post_id):
+    lang = get_user_language()
     post = ForumPost.query.get_or_404(post_id)
-    return render_template('view_post.html', post=post)
+    return render_template('view_post.html', post=post, t=t, lang=lang)
 
-
-@app.route('/pay', methods=['POST'])
+@app.route('/post/new', methods=['GET', 'POST'])
 @login_required
-def pay():
-    amount = request.form.get('amount')
-    phone = current_user.phone
-    flash(f'Payment of KSh {amount} initiated for phone {phone}')
-    return redirect(url_for('dashboard'))
+def create_post():
+    lang = get_user_language()
+    form = PostForm()
+    
+    # Populate county choices
+    form.county.choices = [(c.id, c.name) for c in County.query.order_by(County.name).all()]
+    
+    if form.validate_on_submit():
+        try:
+            post = ForumPost(
+                title=form.title.data,
+                content=form.content.data,
+                disease=form.disease.data,
+                county_id=form.county.data,
+                user_id=current_user.id
+            )
+            db.session.add(post)
+            db.session.commit()
+            
+            # Handle photo uploads if any
+            photos = request.files.getlist('photos')
+            for photo in photos:
+                if photo and photo.filename:
+                    filename = secure_filename(f"post_{post.id}_{datetime.now().timestamp()}.{photo.filename.split('.')[-1]}")
+                    photo_path = os.path.join(app.config['UPLOAD_FOLDER'], 'post_photos', filename)
+                    os.makedirs(os.path.dirname(photo_path), exist_ok=True)
+                    photo.save(photo_path)
+                    
+                    post_photo = PostPhoto(
+                        post_id=post.id,
+                        filename=os.path.join('post_photos', filename)
+                    )
+                    db.session.add(post_photo)
+            
+            db.session.commit()
+            flash(t('post_created', lang), 'success')
+            return redirect(url_for('forum'))
+            
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error creating post: {str(e)}")
+            flash(f'Error creating post: {str(e)}', 'danger')
+    
+    return render_template('create_post.html', form=form, t=t, lang=lang)
 
+@app.route('/forum/comment', methods=['POST'])
+@login_required
+def create_forum_comment():
+    lang = get_user_language()
+    post_id = request.form.get('post_id')
+    content = request.form.get('content')
 
-# --- Application Startup ---
-def get_model():
-    """Load Keras model on first use, store in Flask global context."""
-    if 'model' not in g:
-        print("Loading Keras model… please wait, this may take 20–30 seconds")
-        model_path = os.path.join(os.path.dirname(__file__), "trained_plant_model.keras")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model file not found at: {model_path}")
-        from tensorflow.keras.models import load_model
-        g.model = load_model(model_path)
-        print("Model loaded successfully!")
-    return g.model
+    if not content or not post_id:
+        flash(t('comment_empty', lang), 'danger')
+        return redirect(request.referrer)
 
+    new_comment = ForumComment(
+        content=content,
+        user_id=current_user.id,
+        post_id=post_id
+    )
+    db.session.add(new_comment)
+    db.session.commit()
+
+    flash(t('comment_added', lang), 'success')
+    return redirect(request.referrer)
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    lang = get_user_language()
+    form = CountyForm()
+    if request.method == 'GET':
+        form.county.data = current_user.county_id
+    profile_photo = request.files.get('profile_photo')
+    photo_updated = False
+
+    if profile_photo and profile_photo.filename:
+        if not allowed_file(profile_photo.filename):
+            flash('Profile photo must be a PNG, JPG, JPEG, or WEBP image.', 'danger')
+            return redirect(url_for('profile'))
+
+        photo_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'profile_photos')
+        os.makedirs(photo_folder, exist_ok=True)
+        file_extension = profile_photo.filename.rsplit('.', 1)[1].lower()
+        filename = secure_filename(f'profile_{current_user.id}_{datetime.now().timestamp()}.{file_extension}')
+        profile_photo.save(os.path.join(photo_folder, filename))
+        current_user.profile_photo = filename
+        photo_updated = True
+
+    county_updated = False
+    if form.validate_on_submit():
+        county = County.query.get(form.county.data)
+        if not county:
+            flash(t('select_plant_error', lang), 'danger')
+            return redirect(url_for('profile'))
+
+        current_user.county = county
+        current_user.county_id = county.id
+        county_updated = True
+
+    if photo_updated or county_updated:
+        db.session.commit()
+        flash(t('profile_updated', lang), 'success')
+        return redirect(url_for('profile'))
+    return render_template('profile.html', form=form, t=t, lang=lang)
+
+@app.route('/mpesa-callback', methods=['POST'])
+def mpesa_callback():
+    if not is_mpesa_available():
+        return jsonify({'status': 'ignored', 'message': 'M-Pesa is not configured'}), 503
+
+    data = request.get_json()
+    checkout_request_id = data.get('Body', {}).get('stkCallback', {}).get('CheckoutRequestID')
+    result_code = data.get('Body', {}).get('stkCallback', {}).get('ResultCode')
+
+    payment = Payment.query.filter_by(mpesa_receipt=checkout_request_id).first()
+
+    if payment:
+        if result_code == 0:
+            payment.status = 'paid'
+            callback_metadata = data.get('Body', {}).get('stkCallback', {}).get('CallbackMetadata', {}).get('Item', [])
+            for item in callback_metadata:
+                if item.get('Name') == 'MpesaReceiptNumber':
+                    payment.mpesa_receipt = item.get('Value')
+                    break
+            db.session.commit()
+
+            try:
+                expiry_date = payment.expiry_date
+                if not expiry_date:
+                    if payment.payment_type == 'monthly':
+                        expiry_date = datetime.utcnow() + timedelta(days=30)
+                    else:
+                        expiry_date = datetime.utcnow() + timedelta(days=7)
+                    payment.expiry_date = expiry_date
+                    db.session.commit()
+
+                email_sent = send_payment_confirmation_email(
+                    user=payment.payer,
+                    payment_plan=payment.payment_type,
+                    amount=payment.amount,
+                    expiry_date=expiry_date
+                )
+
+                if email_sent:
+                    payment.confirmation_sent = True
+                    db.session.commit()
+                    app.logger.info(f"Payment confirmation email sent for payment {payment.id}")
+
+            except Exception as e:
+                app.logger.error(f"Error sending payment confirmation email: {str(e)}")
+        else:
+            payment.status = 'failed'
+            db.session.commit()
+
+    return jsonify({'status': 'received'})
 
 if __name__ == '__main__':
-    # Only run the server, don't drop/create tables here
     app.run(debug=True, port=5001, use_reloader=False)

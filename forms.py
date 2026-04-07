@@ -127,13 +127,13 @@ class RegistrationForm(FlaskForm):
 
     verification_code = StringField('Verification Code', validators=[DataRequired()])
 class CountyForm(FlaskForm):
-    county = SelectField('County', validators=[DataRequired()])
+    county = SelectField('County', coerce=int, validators=[DataRequired()])
 
     def __init__(self, *args, **kwargs):
         super(CountyForm, self).__init__(*args, **kwargs)
         counties = County.query.order_by(County.name).all()
-        self.county.choices = [(str(c.id), c.name) for c in counties]
-        self.county.choices.insert(0, ('', 'Select your county'))
+        self.county.choices = [(c.id, c.name) for c in counties]
+        self.county.choices.insert(0, (0, 'Select your county'))
 
 class PaymentForm(FlaskForm):
     phone_number = StringField('Phone Number',

@@ -25,7 +25,7 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <button type="submit" class="btn btn-success mt-3 mt-md-0">
+                    <button type="submit" class="btn btn-primary mt-3 mt-md-0">
                         <i class="bi bi-funnel"></i> Apply
                     </button>
                 </div>
@@ -87,8 +87,14 @@
                 <div class="comment mb-3 ps-3 border-start">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <strong>{{ comment.user.username }}</strong>
-                            <small class="text-muted ms-2">{{ comment.user.county.name }} County</small>
+                            <strong>{{ comment.commenter.username }}</strong>
+                            <small class="text-muted ms-2">
+                                {% if comment.commenter.county %}
+                                    {{ comment.commenter.county.name }} County
+                                {% else %}
+                                    Unknown County
+                                {% endif %}
+                            </small>
                         </div>
                         <small class="text-muted">{{ comment.created_at.strftime('%b %d %I:%M %p') }}</small>
                     </div>
@@ -112,7 +118,7 @@
                 {% endif %}
 
                 <!-- Comment Form -->
-                <form method="POST" action="{{ url_for('create_comment') }}" enctype="multipart/form-data" class="mt-3">
+                <form method="POST" action="{{ url_for('create_forum_comment') }}" enctype="multipart/form-data" class="mt-3">
                     <input type="hidden" name="post_id" value="{{ post.id }}" />
                     <div class="mb-3">
                         <textarea name="content" class="form-control" placeholder="Write a comment..." rows="2" required></textarea>
@@ -125,7 +131,7 @@
                             </label>
                             <small class="text-muted ms-2">Max 5MB</small>
                         </div>
-                        <button type="submit" class="btn btn-success btn-sm">Post</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Post</button>
                     </div>
                 </form>
             </div>

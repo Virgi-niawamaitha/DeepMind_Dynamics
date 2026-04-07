@@ -2,31 +2,75 @@
 
 {% block content %}
 <div class="container mt-4">
+    <!-- Language Selector Banner -->
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-translate"></i>
+                <span id="languageMessage">
+                    {% if lang == 'sw' %}
+                        <strong>Umependeza lugha ya Kiswahili</strong> - Taarifa zote zimetafsiriwa kwa urahisi wako.
+                    {% else %}
+                        <strong>You are viewing in English</strong>
+                    {% endif %}
+                </span>
+            </div>
+            <div>
+                {% if lang == 'sw' %}
+                    <a href="{{ url_for('set_language', lang='en') }}?next={{ request.url }}" class="btn btn-sm btn-outline-success">
+                        View in English
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('set_language', lang='sw') }}?next={{ request.url }}" class="btn btn-sm btn-outline-success">
+                        Tazama kwa Kiswahili
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <!-- Disease Prediction Results Section -->
     <div class="row">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h3 class="mb-0">{{ 'Matokeo ya Utabiri kwa' if lang == 'sw' else 'Prediction Results for' }} {{ plant_type }}</h3>
+                    <h3 class="mb-0">
+                        {% if lang == 'sw' %}
+                            Matokeo ya Uchambuzi wa {{ plant_type }}
+                        {% else %}
+                            Prediction Results for {{ plant_type }}
+                        {% endif %}
+                    </h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="user-image-container">
                                 {% if user_image %}
-                                    <img src="/static/{{ user_image }}"
-                                         class="img-fluid rounded"
+                                    <img src="{{ url_for('uploaded_file', filename=user_image) }}" 
+                                         class="img-fluid rounded" 
                                          alt="Uploaded plant image"
-                                         onerror="this.outerHTML='<div class=\'alert alert-warning\'>Image could not be loaded</div>'">
+                                         onerror="this.onerror=null;this.src='{{ url_for('static', filename='img/placeholder.jpg') }}'">
                                 {% else %}
-                                    <div class="alert alert-warning">Plant image not available</div>
+                                    <div class="alert alert-warning">
+                                        {% if lang == 'sw' %}
+                                            Picha ya mmea haipatikani
+                                        {% else %}
+                                            Plant image not available
+                                        {% endif %}
+                                    </div>
                                 {% endif %}
-                                <!-- REMOVED CONFIDENCE BADGE -->
                             </div>
 
                             <!-- Example Disease Images Section -->
                             <div class="example-images-section mt-4">
-                                <h4>Example Images of {{ disease_name }}</h4>
+                                <h4>
+                                    {% if lang == 'sw' %}
+                                        Picha za Mfano za {{ disease_name }}
+                                    {% else %}
+                                        Example Images of {{ disease_name }}
+                                    {% endif %}
+                                </h4>
                                 {% if example_images %}
                                     <div class="row row-cols-2 row-cols-md-3 g-3">
                                         {% for img in example_images %}
@@ -41,55 +85,235 @@
                                 {% else %}
                                     <div class="alert alert-warning">
                                         <i class="bi bi-exclamation-triangle"></i>
-                                        No example images found in:<br>
-                                        <code>static/disease pics/Plant_leave_diseases_dataset_without_augmentation/{{ disease_name }}</code>
+                                        {% if lang == 'sw' %}
+                                            Hakuna picha za mfano zilizopatikana
+                                        {% else %}
+                                            No example images found
+                                        {% endif %}
                                     </div>
                                 {% endif %}
                             </div>
                         </div>
 
                         <div class="col-md-6">
+                            <!-- Diagnosis Info -->
                             <div class="diagnosis-info">
-                                <h4>{{ 'Utambuzi' if lang == 'sw' else 'Diagnosis' }}</h4>
-                                <p><strong>{{ 'Ugonjwa:' if lang == 'sw' else 'Disease:' }}</strong> {{ disease_name }}</p>
-                                <p><strong>{{ 'Jina la Kisayansi:' if lang == 'sw' else 'Scientific Name:' }}</strong> {{ scientific_name }}</p>
+                                <h4>{% if lang == 'sw' %}Utambuzi{% else %}Diagnosis{% endif %}</h4>
+                                <p><strong>{% if lang == 'sw' %}Ugonjwa{% else %}Disease{% endif %}:</strong> {{ disease_name }}</p>
+                                <p><strong>{% if lang == 'sw' %}Jina la Kisayansi{% else %}Scientific Name{% endif %}:</strong> {{ scientific_name }}</p>
+                                <p><strong>{% if lang == 'sw' %}Uhakika{% else %}Confidence{% endif %}:</strong></p>
+                                <div class="progress mb-3">
+                                    <div class="progress-bar bg-success" role="progressbar" 
+                                         style="width: {{ confidence }}%" 
+                                         aria-valuenow="{{ confidence }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        {{ confidence }}%
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="treatment-info">
-                                <h4>{{ 'Matibabu Yanayopendekezwa' if lang == 'sw' else 'Recommended Treatment' }}</h4>
-                                <p>{{ treatment }}</p>
+                            <!-- Drug Recommendations Section -->
+                            <div class="drug-recommendations mt-4">
+                                <div class="card border-warning">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h4 class="mb-0">
+                                            <i class="bi bi-capsule"></i>
+                                            {% if lang == 'sw' %}
+                                                Mapendekezo ya Dawa
+                                            {% else %}
+                                                Drug Recommendations
+                                            {% endif %}
+                                        </h4>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                            <i class="bi bi-exclamation-triangle-fill"></i>
+                                            <strong>⚠️ {% if lang == 'sw' %}TAHADHARI{% else %}WARNING{% endif %}:</strong>
+                                            {% if lang == 'sw' %}
+                                                Fuata maagizo ya mtengenezaji kwa uangalifu. Wasiliana na afisa kilimo wa eneo lako kabla ya kutumia dawa zozote.
+                                            {% else %}
+                                                Follow manufacturer's instructions carefully. Consult your local agricultural officer before applying any chemicals.
+                                            {% endif %}
+                                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                        </div>
+                                        
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-hover">
+                                                <thead class="table-dark">
+                                                    <tr>
+                                                        <th>{% if lang == 'sw' %}Jina la Dawa{% else %}Drug Name{% endif %}</th>
+                                                        <th>{% if lang == 'sw' %}Kipimo{% else %}Dosage{% endif %}</th>
+                                                        <th>{% if lang == 'sw' %}Mara ngapi{% else %}Frequency{% endif %}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% if drugs and drugs|length > 0 %}
+                                                        {% for drug in drugs %}
+                                                        <tr>
+                                                            <td>
+                                                                <strong>{{ drug.name if lang == 'en' else drug.name_sw }}</strong>
+                                                                {% if drug.name != drug.name_sw and lang == 'sw' %}
+                                                                    <br><small class="text-muted">({{ drug.name }})</small>
+                                                                {% endif %}
+                                                             </td>
+                                                            <td>{{ drug.dosage if lang == 'en' else drug.dosage_sw }}</td>
+                                                            <td>{{ drug.frequency if lang == 'en' else drug.frequency_sw }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <!-- Default drug recommendations for unknown diseases -->
+                                                        <tr>
+                                                            <td colspan="3" class="text-center text-warning">
+                                                                <strong>⚠️ {% if lang == 'sw' %}Hakuna mapendekezo maalum ya dawa{% else %}No specific drug recommendations{% endif %}</strong>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>{% if lang == 'sw' %}Mancozeb (Dawa ya Kawaida){% else %}Mancozeb (General Purpose){% endif %}</strong></td>
+                                                            <td>{% if lang == 'sw' %}2g kwa lita moja ya maji{% else %}2g per liter water{% endif %}</td>
+                                                            <td>{% if lang == 'sw' %}Kila siku 7-10{% else %}Every 7-10 days{% endif %}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>{% if lang == 'sw' %}Copper Oxychloride (Dawa ya Shaba){% else %}Copper Oxychloride{% endif %}</strong></td>
+                                                            <td>{% if lang == 'sw' %}2.5g kwa lita moja ya maji{% else %}2.5g per liter water{% endif %}</td>
+                                                            <td>{% if lang == 'sw' %}Kila wiki{% else %}Weekly{% endif %}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>{% if lang == 'sw' %}Sulfur (Dawa ya Salafa){% else %}Sulfur (Sulphur){% endif %}</strong></td>
+                                                            <td>{% if lang == 'sw' %}3g kwa lita moja ya maji{% else %}3g per liter water{% endif %}</td>
+                                                            <td>{% if lang == 'sw' %}Kila siku 10-14{% else %}Every 10-14 days{% endif %}</td>
+                                                        </tr>
+                                                    {% endif %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        
+                                        <div class="alert alert-info mt-3">
+                                            <i class="bi bi-info-circle"></i>
+                                            <strong>{% if lang == 'sw' %}Ushauri wa Ziada{% else %}Additional Advice{% endif %}:</strong>
+                                            <ul class="mb-0 mt-2">
+                                                {% if lang == 'sw' %}
+                                                    <li>Koroga dawa vizuri kabla ya kutumia</li>
+                                                    <li>Tumia vifaa vya kinga (glovu, barakoa) wakati wa kupaka dawa</li>
+                                                    <li>Usinyunyize dawa wakati wa jua kali au upepo mkali</li>
+                                                    <li>Subiri kipindi kinachopendekezwa kabla ya kuvuna</li>
+                                                    <li>Badilisha aina za dawa ili kuzuia ukinzani wa magonjwa</li>
+                                                {% else %}
+                                                    <li>Mix chemicals thoroughly before application</li>
+                                                    <li>Use protective equipment (gloves, mask) when applying</li>
+                                                    <li>Avoid spraying during hot sun or strong wind</li>
+                                                    <li>Observe recommended pre-harvest intervals</li>
+                                                    <li>Rotate different fungicides to prevent disease resistance</li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            {% if agrovet_medications %}
-                            <div class="agrovet-info">
-                                <h4><i class="bi bi-capsule"></i> {{ 'Dawa za Agrovet Zilizopendekezwa' if lang == 'sw' else 'Agrovet Medication Prescription' }}</h4>
-                                <ul class="list-group list-group-flush">
-                                    {% for med in agrovet_medications %}
-                                    <li class="list-group-item px-0">
-                                        <i class="bi bi-check-circle-fill text-success me-2"></i>{{ med }}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                            {% endif %}
-
-                            <div class="phytomedicine-info">
-                                <h4>{{ 'Tiba za Asili' if lang == 'sw' else 'Natural Remedies' }}</h4>
-                                <p>{{ phytomedicine }}</p>
+                            <!-- Treatment Info -->
+                            <div class="treatment-info mt-4">
+                                <h4><i class="bi bi-heart-pulse"></i> {% if lang == 'sw' %}Matibabu{% else %}Treatment{% endif %}</h4>
+                                <div class="p-3 bg-light rounded">
+                                    {{ treatment }}
+                                </div>
                             </div>
 
-                            <div class="prevention-info">
-                                <h4>{{ 'Njia za Kuzuia' if lang == 'sw' else 'Prevention Methods' }}</h4>
-                                <p>{{ prevention }}</p>
+                            <!-- Phytomedicine Info -->
+                            <div class="phytomedicine-info mt-4">
+                                <h4><i class="bi bi-tree"></i> {% if lang == 'sw' %}Dawa za Asili{% else %}Phytomedicine (Natural Remedies){% endif %}</h4>
+                                <div class="p-3 bg-success bg-opacity-10 rounded">
+                                    <i class="bi bi-leaf"></i> {{ phytomedicine }}
+                                </div>
                             </div>
 
-                            <!-- Compact Prevention Calendar Section -->
+                            <!-- Prevention Info -->
+                            <div class="prevention-info mt-4">
+                                <h4><i class="bi bi-shield-check"></i> {% if lang == 'sw' %}Kinga{% else %}Prevention{% endif %}</h4>
+                                <div class="p-3 bg-info bg-opacity-10 rounded">
+                                    {{ prevention }}
+                                </div>
+                            </div>
+
+                            <!-- Prevention Calendar Section -->
                             <div class="prevention-calendar mt-4">
-                                <h4><i class="bi bi-calendar-check"></i> {{ 'Ratiba ya Kuzuia' if lang == 'sw' else 'Prevention Schedule' }}</h4>
+                                <h4><i class="bi bi-calendar-check"></i> 
+                                    {% if lang == 'sw' %}
+                                        Ratiba ya Kinga
+                                    {% else %}
+                                        Prevention Schedule
+                                    {% endif %}
+                                </h4>
                                 <div id="compact-calendar"></div>
                                 <button class="btn btn-sm btn-outline-success mt-2" id="export-calendar">
-                                    <i class="bi bi-google"></i> {{ 'Hamisha kwenye Kalenda ya Google' if lang == 'sw' else 'Export to Google Calendar' }}
+                                    <i class="bi bi-google"></i> 
+                                    {% if lang == 'sw' %}
+                                        Ongeza kwa Kalenda ya Google
+                                    {% else %}
+                                        Export to Google Calendar
+                                    {% endif %}
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Farmer Tips Section -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card bg-light">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightbulb"></i> 
+                        {% if lang == 'sw' %}
+                            Vidokezo vya Wakulima
+                        {% else %}
+                            Farmer Tips
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <i class="bi bi-droplet display-4 text-info"></i>
+                                <h6>{% if lang == 'sw' %}Umwagiliaji{% else %}Watering{% endif %}</h6>
+                                <small>
+                                    {% if lang == 'sw' %}
+                                        Mwagilia asubuhi mapema, epuka kumwagilia majani. Tumia umwagiliaji kwa njia ya matone.
+                                    {% else %}
+                                        Water early morning, avoid wetting leaves. Use drip irrigation when possible.
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <i class="bi bi-flower1 display-4 text-success"></i>
+                                <h6>{% if lang == 'sw' %}Udongo{% else %}Soil{% endif %}</h6>
+                                <small>
+                                    {% if lang == 'sw' %}
+                                        Tumia mbolea za samadi au mboji. Fanya mtihani wa udongo mara kwa mara.
+                                    {% else %}
+                                        Use organic manure and compost. Test soil regularly for nutrients.
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <i class="bi bi-tree display-4 text-primary"></i>
+                                <h6>{% if lang == 'sw' %}Mzunguko wa Mazao{% else %}Crop Rotation{% endif %}</h6>
+                                <small>
+                                    {% if lang == 'sw' %}
+                                        Badilisha mazao kila mwaka ili kuzuia magonjwa kujenga kwenye udongo.
+                                    {% else %}
+                                        Rotate crops annually to prevent disease buildup in soil.
+                                    {% endif %}
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -102,16 +326,28 @@
     <div class="row mt-4">
         <div class="col-md-12">
             <div class="community-forum mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4><i class="bi bi-people-fill"></i> Community Discussions</h4>
-                    <div class="county-filter">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+                    <h4><i class="bi bi-people-fill"></i> 
+                        {% if lang == 'sw' %}
+                            Majadiliano ya Jamii
+                        {% else %}
+                            Community Discussions
+                        {% endif %}
+                    </h4>
+                    <div class="county-filter mt-2 mt-sm-0">
                         <form method="GET" action="{{ url_for('predict') }}" class="d-inline">
-                            <input type="hidden" name="plant_type" value="{{ plant_type }}">
+                            <input type="hidden" name="plant_type" value="{{ plant_type|lower }}">
                             <select name="county" class="form-select form-select-sm" onchange="this.form.submit()">
-                                <option value="">All Counties</option>
+                                <option value="">
+                                    {% if lang == 'sw' %}
+                                        Kaunti Zote
+                                    {% else %}
+                                        All Counties
+                                    {% endif %}
+                                </option>
                                 {% for county in counties %}
-                                <option value="{{ county[0] }}" {% if request.args.get('county') == county[0] %}selected{% endif %}>
-                                    {{ county[1] }}
+                                <option value="{{ county.name }}" {% if request.args.get('county') == county.name %}selected{% endif %}>
+                                    {{ county.name }}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -123,25 +359,28 @@
                 <div class="comments-section">
                     {% for post in forum_posts %}
                         <div class="forum-post mb-4 p-3 border rounded">
-                            <div class="post-header d-flex justify-content-between align-items-center mb-2">
+                            <div class="post-header d-flex justify-content-between align-items-center mb-2 flex-wrap">
                                 <div>
-                                    <strong>{{ post.author.name }}</strong>
-                                    <span class="county-badge ms-2">{{ post.author.county }} County</span>
+                                    <strong>{{ post.author.username }}</strong>
+                                    <span class="county-badge ms-2">{{ post.author.county.name if post.author.county else 'Unknown' }}
+                                        {% if lang == 'sw' %}Kaunti{% endif %}
+                                    </span>
                                 </div>
                                 <small class="text-muted">{{ post.created_at.strftime('%b %d, %Y') }}</small>
                             </div>
+                            <h5>{{ post.title }}</h5>
                             <p>{{ post.content }}</p>
 
                             <!-- Comments for this post -->
                             <div class="post-comments mt-3 ps-3 border-start">
-                                {% for comment in post.comments %}
+                                {% for comment in post.comments[:3] %}
                                 <div class="comment mb-3 p-2 bg-light rounded">
-                                    <div class="comment-header d-flex justify-content-between align-items-center">
+                                    <div class="comment-header d-flex justify-content-between align-items-center flex-wrap">
                                         <div>
-                                            <strong>{{ comment.user.name }}</strong>
-                                            <span class="county-badge ms-2">{{ comment.user.county }} County</span>
+                                            <strong>{{ comment.author.username }}</strong>
+                                            <span class="county-badge ms-2">{{ comment.author.county.name if comment.author.county else 'Unknown' }}</span>
                                         </div>
-                                        <small class="text-muted">{{ comment.created_at.strftime('%I:%M %p') }}</small>
+                                        <small class="text-muted">{{ comment.created_at.strftime('%I:%M %p, %b %d') }}</small>
                                     </div>
                                     <p class="mb-1">{{ comment.content }}</p>
                                     {% if comment.photo %}
@@ -158,14 +397,28 @@
                                 <form method="POST" action="{{ url_for('create_forum_comment') }}" enctype="multipart/form-data" class="mt-3">
                                     <input type="hidden" name="post_id" value="{{ post.id }}">
                                     <div class="mb-2">
-                                        <textarea name="content" class="form-control form-control-sm" placeholder="Add a comment..." required rows="2"></textarea>
+                                        <textarea name="content" class="form-control form-control-sm" 
+                                            placeholder="{% if lang == 'sw' %}Andika maoni yako...{% else %}Add a comment...{% endif %}" 
+                                            required rows="2"></textarea>
                                     </div>
-                                    <div class="d-flex">
-                                        <div class="flex-grow-1 me-2">
+                                    <div class="d-flex flex-wrap">
+                                        <div class="flex-grow-1 me-2 mb-2 mb-sm-0">
                                             <input type="file" name="photo" class="form-control form-control-sm" accept="image/*">
-                                            <small class="text-muted">Optional photo (max 5MB)</small>
+                                            <small class="text-muted">
+                                                {% if lang == 'sw' %}
+                                                    Picha ya hiari (kiasi cha 5MB)
+                                                {% else %}
+                                                    Optional photo (max 5MB)
+                                                {% endif %}
+                                            </small>
                                         </div>
-                                        <button type="submit" class="btn btn-sm btn-success">Post</button>
+                                        <button type="submit" class="btn btn-sm btn-primary">
+                                            {% if lang == 'sw' %}
+                                                Tuma
+                                            {% else %}
+                                                Post
+                                            {% endif %}
+                                        </button>
                                     </div>
                                 </form>
                             </div>
@@ -174,10 +427,19 @@
                 </div>
                 {% else %}
                     <div class="alert alert-info">
-                        No discussions found {% if request.args.get('county') %}in {{ request.args.get('county') }}{% endif %} for {{ disease_name }}. Be the first to start one!
+                        {% if lang == 'sw' %}
+                            Hakuna majadiliano {% if request.args.get('county') %}katika {{ request.args.get('county') }}{% endif %} kuhusu {{ disease_name }}. Kuwa wa kwanza kuanzisha majadiliano!
+                        {% else %}
+                            No discussions found {% if request.args.get('county') %}in {{ request.args.get('county') }}{% endif %} for {{ disease_name }}. Be the first to start one!
+                        {% endif %}
                     </div>
                     <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#newPostModal">
-                        <i class="bi bi-plus-circle"></i> Start New Discussion
+                        <i class="bi bi-plus-circle"></i> 
+                        {% if lang == 'sw' %}
+                            Anzisha Majadiliano Mapya
+                        {% else %}
+                            Start New Discussion
+                        {% endif %}
                     </button>
                 {% endif %}
             </div>
@@ -185,15 +447,33 @@
     </div>
 
     <!-- Action Buttons -->
-    <div class="row mt-4">
+    <div class="row mt-4 mb-5">
         <div class="col-md-12">
-            <div class="action-buttons">
+            <div class="action-buttons d-flex flex-wrap gap-2 justify-content-center">
                 <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> {{ 'Rudi Dashibodini' if lang == 'sw' else 'Back to Dashboard' }}
+                    <i class="bi bi-arrow-left"></i> 
+                    {% if lang == 'sw' %}
+                        Rudi kwa Dashibodi
+                    {% else %}
+                        Back to Dashboard
+                    {% endif %}
                 </a>
                 <a href="{{ url_for('select_plant') }}" class="btn btn-success">
-                    <i class="bi bi-plus-circle"></i> {{ 'Utabiri Mpya' if lang == 'sw' else 'New Prediction' }}
+                    <i class="bi bi-plus-circle"></i> 
+                    {% if lang == 'sw' %}
+                        Uchambuzi Mpya
+                    {% else %}
+                        New Prediction
+                    {% endif %}
                 </a>
+                <button class="btn btn-info" onclick="window.print()">
+                    <i class="bi bi-printer"></i> 
+                    {% if lang == 'sw' %}
+                        Chapisha Matokeo
+                    {% else %}
+                        Print Results
+                    {% endif %}
+                </button>
             </div>
         </div>
     </div>
@@ -204,38 +484,104 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">New Discussion</h5>
+                <h5 class="modal-title">
+                    {% if lang == 'sw' %}
+                        Majadiliano Mapya
+                    {% else %}
+                        New Discussion
+                    {% endif %}
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url_for('create_forum_post') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="disease" value="{{ disease_name }}">
                     <div class="mb-3">
-                        <label class="form-label">Title</label>
+                        <label class="form-label">
+                            {% if lang == 'sw' %}
+                                Kichwa
+                            {% else %}
+                                Title
+                            {% endif %}
+                        </label>
                         <input type="text" name="title" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Content</label>
+                        <label class="form-label">
+                            {% if lang == 'sw' %}
+                                Maelezo
+                            {% else %}
+                                Content
+                            {% endif %}
+                        </label>
                         <textarea name="content" class="form-control" rows="3" required></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">County</label>
+                        <label class="form-label">
+                            {% if lang == 'sw' %}
+                                Kaunti
+                            {% else %}
+                                County
+                            {% endif %}
+                        </label>
                         <select name="county" class="form-select" required>
                             {% for county in counties %}
-                            <option value="{{ county[0] }}" {% if county[0] == current_user.county %}selected{% endif %}>{{ county[1] }}</option>
+                            <option value="{{ county.id }}" {% if county.id == current_user.county_id %}selected{% endif %}>
+                                {{ county.name }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Photos (Optional)</label>
+                        <label class="form-label">
+                            {% if lang == 'sw' %}
+                                Picha (Hiari)
+                            {% else %}
+                                Photos (Optional)
+                            {% endif %}
+                        </label>
                         <input type="file" name="photos" class="form-control" multiple accept="image/*">
+                        <small class="text-muted">
+                            {% if lang == 'sw' %}
+                                Unaweza kupakia picha nyingi kwa ajili ya kuelezea hali yako.
+                            {% else %}
+                                You can upload multiple photos to describe your situation.
+                            {% endif %}
+                        </small>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-success">Post Discussion</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        {% if lang == 'sw' %}
+                            Funga
+                        {% else %}
+                            Close
+                        {% endif %}
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        {% if lang == 'sw' %}
+                            Chapisha Majadiliano
+                        {% else %}
+                            Post Discussion
+                        {% endif %}
+                    </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Photo Modal -->
+<div class="modal fade" id="photoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% if lang == 'sw' %}Picha{% else %}Photo{% endif %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalPhoto" src="" class="img-fluid" alt="Full size image">
+            </div>
         </div>
     </div>
 </div>
@@ -254,32 +600,24 @@
     }
     .example-thumbnail:hover {
         transform: scale(1.05);
+        cursor: pointer;
     }
     .user-image-container img {
         max-height: 400px;
-        width: auto;
+        width: 100%;
+        object-fit: contain;
     }
-    .diagnosis-info, .treatment-info, .agrovet-info, .phytomedicine-info, .prevention-info {
+    .diagnosis-info, .treatment-info, .phytomedicine-info, .prevention-info {
         margin-bottom: 20px;
         padding-bottom: 15px;
         border-bottom: 1px solid #eee;
     }
-    .agrovet-info {
-        background-color: #f0fff4;
-        border: 1px solid #b2dfdb;
-        border-radius: 8px;
-        padding: 12px 15px !important;
-    }
-    .agrovet-info h4 {
-        color: #2e7d32;
-    }
-    /* Compact Calendar Styles */
     #compact-calendar {
         background-color: white;
         border-radius: 8px;
         padding: 8px;
         box-shadow: 0 0 8px rgba(0,0,0,0.05);
-        height: 250px;
+        height: 280px;
     }
     .fc .fc-toolbar-title {
         font-size: 1rem;
@@ -295,11 +633,8 @@
         font-size: 0.7rem;
         padding: 1px 3px;
         margin: 1px 0;
+        cursor: pointer;
     }
-    .fc-daygrid-event-dot {
-        margin-right: 2px;
-    }
-    /* Enhanced Comments section styles */
     .comments-section {
         border-left: 3px solid #dee2e6;
         padding-left: 10px;
@@ -321,76 +656,115 @@
     .county-filter {
         width: 200px;
     }
-    .post-photos img {
-        transition: transform 0.2s;
-    }
-    .post-photos img:hover {
-        transform: scale(1.05);
-        cursor: pointer;
-    }
     .forum-post {
         transition: all 0.2s;
     }
     .forum-post:hover {
         box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    .action-buttons {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
+    .progress {
+        height: 25px;
+    }
+    .progress-bar {
+        line-height: 25px;
+        font-weight: bold;
+    }
+    .drug-recommendations table {
+        font-size: 0.9rem;
+    }
+    .drug-recommendations table td, 
+    .drug-recommendations table th {
+        vertical-align: middle;
+    }
+    @media (max-width: 768px) {
+        .action-buttons .btn {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .county-filter {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .d-flex.flex-wrap {
+            flex-direction: column;
+        }
+    }
+    @media print {
+        .action-buttons, .county-filter, .language-switch-btn, 
+        .btn-close, .alert-dismissible .btn-close,
+        #export-calendar, .comment-form, .modal {
+            display: none !important;
+        }
+        .card {
+            border: 1px solid #ddd;
+            break-inside: avoid;
+        }
+        .container {
+            max-width: 100%;
+        }
     }
 </style>
 
 <script>
+function showPhoto(src) {
+    document.getElementById('modalPhoto').src = src;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize compact calendar
     const calendarEl = document.getElementById('compact-calendar');
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next',
-            center: 'title',
-            right: 'today'
-        },
-        height: 'parent',
-        aspectRatio: 1.2,
-        events: {{ prevention_events|tojson|safe }},
-        eventClick: function(info) {
-            alert(`Scheduled: ${info.event.title}\nDate: ${info.event.start.toLocaleDateString()}`);
-        },
-        dayMaxEventRows: 2,
-        eventDisplay: 'auto',
-        views: {
-            dayGridMonth: {
-                dayMaxEventRows: 2
-            }
-        }
-    });
-    calendar.render();
+    if (calendarEl) {
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next',
+                center: 'title',
+                right: 'today'
+            },
+            height: 'parent',
+            aspectRatio: 1.2,
+            events: {{ prevention_events|tojson|safe }},
+            eventClick: function(info) {
+                const title = info.event.title;
+                const date = info.event.start.toLocaleDateString();
+                {% if lang == 'sw' %}
+                    alert('Imepangwa: ' + title + '\nTarehe: ' + date);
+                {% else %}
+                    alert('Scheduled: ' + title + '\nDate: ' + date);
+                {% endif %}
+            },
+            dayMaxEventRows: 2,
+            eventDisplay: 'auto'
+        });
+        calendar.render();
+    }
 
     // Google Calendar export
-    document.getElementById('export-calendar').addEventListener('click', function() {
-        const events = {{ prevention_events|tojson|safe }};
-        events.forEach(event => {
-            const startDate = new Date(event.start + 'T00:00:00').toISOString().replace(/-|:|\.\d+/g, '');
-            const endDate = new Date(event.start + 'T00:30:00').toISOString().replace(/-|:|\.\d+/g, '');
-
-            window.open(
-                `https://www.google.com/calendar/render?action=TEMPLATE` +
-                `&text=${encodeURIComponent(event.title)}` +
-                `&dates=${startDate}/${endDate}` +
-                `&details=Generated by Plant Disease Detection System` +
-                `&location=Your Garden` +
-                `&sf=true&output=xml`
-            );
+    const exportBtn = document.getElementById('export-calendar');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            const events = {{ prevention_events|tojson|safe }};
+            events.forEach(function(event) {
+                const startDate = new Date(event.start + 'T00:00:00').toISOString().replace(/-|:|\.\d+/g, '');
+                const endDate = new Date(event.start + 'T00:30:00').toISOString().replace(/-|:|\.\d+/g, '');
+                
+                window.open(
+                    'https://www.google.com/calendar/render?action=TEMPLATE' +
+                    '&text=' + encodeURIComponent(event.title) +
+                    '&dates=' + startDate + '/' + endDate +
+                    '&details=Generated by PlantMD Disease Detection System' +
+                    '&location=Your Garden' +
+                    '&sf=true&output=xml'
+                );
+            });
+            
+            {% if lang == 'sw' %}
+                alert('Matukio yameongezwa kwenye kalenda yako ya Google!');
+            {% else %}
+                alert('Events added to your Google Calendar!');
+            {% endif %}
         });
-    });
-
-    // Initialize Bootstrap tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    }
 });
 </script>
 {% endblock %}

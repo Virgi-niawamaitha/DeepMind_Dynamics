@@ -9,16 +9,21 @@
                     <h4 class="mb-0">User Profile</h4>
                 </div>
                 <div class="card-body">
+                    {% set profile_image = url_for('static', filename='images/default-profile.png') %}
+                    {% if current_user.profile_photo %}
+                        {% set profile_image = url_for('static', filename='uploads/profile_photos/' + current_user.profile_photo) %}
+                    {% endif %}
+
                     <div class="row mb-4">
                         <div class="col-md-4 text-center">
                             <div class="profile-image-container mb-3">
-                                <img src="{{ url_for('static', filename='images/default-profile.png') }}"
+                                <img src="{{ profile_image }}"
                                      class="img-thumbnail rounded-circle"
                                      alt="Profile Picture"
                                      width="150"
                                      height="150">
                                 <div class="mt-2">
-                                    <button class="btn btn-sm btn-outline-secondary">Change Photo</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="change-photo-btn">Change Photo</button>
                                 </div>
                             </div>
                         </div>
@@ -41,8 +46,9 @@
                     <hr>
 
                     <h5 class="mb-3">Update County Information</h5>
-                    <form method="POST" action="">
+                    <form method="POST" action="" enctype="multipart/form-data" id="profile-form">
                         {{ form.hidden_tag() }}
+                        <input type="file" name="profile_photo" id="profile-photo-input" accept="image/png,image/jpeg,image/jpg,image/webp" class="d-none">
                         <div class="form-group mb-3">
                             {{ form.county.label(class="form-label fw-bold") }}
                             {{ form.county(class="form-select" + (" is-invalid" if form.county.errors else "")) }}
@@ -79,7 +85,7 @@
                         <div class="col-md-6">
                             <div class="card bg-light">
                                 <div class="card-body text-center">
-                                    <h5 class="card-title">{{ current_user.posts|length if current_user.posts else 0 }}</h5>
+                                    <h5 class="card-title">{{ current_user.authored_posts|length if current_user.authored_posts else 0 }}</h5>
                                     <p class="card-text">Forum Posts</p>
                                 </div>
                             </div>
@@ -90,16 +96,16 @@
                     <div class="account-actions mt-4">
                         <h5 class="mb-3">Quick Actions</h5>
                         <div class="d-flex flex-column flex-md-row gap-2">
-                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-success">
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
                                 <i class="bi bi-speedometer2"></i> Dashboard
                             </a>
                             <a href="{{ url_for('select_plant') }}" class="btn btn-outline-success">
                                 <i class="bi bi-plus-circle"></i> New Prediction
                             </a>
-                            <a href="{{ url_for('forum') }}" class="btn btn-outline-success">
+                            <a href="{{ url_for('forum') }}" class="btn btn-outline-info">
                                 <i class="bi bi-people"></i> Community Forum
                             </a>
-                            <a href="{{ url_for('payment_status') }}" class="btn btn-outline-success">
+                            <a href="{{ url_for('payment_status') }}" class="btn btn-outline-warning">
                                 <i class="bi bi-credit-card"></i> Subscription
                             </a>
                         </div>
@@ -132,4 +138,24 @@
         min-width: 160px;
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const changePhotoButton = document.getElementById('change-photo-btn');
+        const profilePhotoInput = document.getElementById('profile-photo-input');
+        const profileForm = document.getElementById('profile-form');
+
+        if (changePhotoButton && profilePhotoInput && profileForm) {
+            changePhotoButton.addEventListener('click', function () {
+                profilePhotoInput.click();
+            });
+
+            profilePhotoInput.addEventListener('change', function () {
+                if (profilePhotoInput.files && profilePhotoInput.files.length > 0) {
+                    profileForm.submit();
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}
