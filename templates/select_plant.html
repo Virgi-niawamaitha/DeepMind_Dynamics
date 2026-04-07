@@ -2,7 +2,6 @@
 
 {% block content %}
 <div class="container mt-4">
-    {# Payment success notification #}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -16,10 +15,10 @@
 
     <div class="card shadow">
         <div class="card-header bg-success text-white">
-            <h2 class="text-center mb-0">Select Plant Type</h2>
+            <h2 class="text-center mb-0" data-i18n="select_plant.title">Select Plant Type</h2>
         </div>
         <div class="card-body">
-            <p class="text-center">Please choose the plant you want to analyze for diseases:</p>
+            <p class="text-center" data-i18n="select_plant.choose_plant">Please choose the plant you want to analyze for diseases:</p>
 
             <form method="POST" action="{{ url_for('select_plant') }}">
                 <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-4">
@@ -37,10 +36,9 @@
                 </div>
             </form>
 
-            {# Back button - Changed to use 'dashboard' route #}
             <div class="text-center mt-4">
                 <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
+                    <i class="fas fa-arrow-left me-2"></i> <span data-i18n="select_plant.back_dashboard">Back to Dashboard</span>
                 </a>
             </div>
         </div>

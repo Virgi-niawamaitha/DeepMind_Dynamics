@@ -4,17 +4,17 @@
     <div class="col-md-8">
         <div class="card">
             <div class="card-header bg-success text-white">
-                <h3 class="mb-0">Upload {{ plant_type }} Image</h3>
+                <h3 class="mb-0"><span data-i18n="predict.upload_title">Upload</span> {{ plant_type }} <span data-i18n="predict.select_image">Image</span></h3>
             </div>
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data">
                     <div class="mb-3">
-                        <label for="file" class="form-label">Select Image</label>
+                        <label for="file" class="form-label" data-i18n="predict.select_image">Select Image</label>
                         <input class="form-control" type="file" name="file" id="file" required>
-                        <div class="form-text">Upload a clear photo of the affected plant part (max 16MB)</div>
+                        <div class="form-text" data-i18n="predict.file_hint">Upload a clear photo of the affected plant part (max 16MB)</div>
                     </div>
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-success">Predict Disease</button>
+                        <button type="submit" class="btn btn-success" data-i18n="predict.predict_btn">Predict Disease</button>
                     </div>
                 </form>
             </div>

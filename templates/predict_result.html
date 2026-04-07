@@ -7,7 +7,7 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h3 class="mb-0">{{ 'Matokeo ya Utabiri kwa' if lang == 'sw' else 'Prediction Results for' }} {{ plant_type }}</h3>
+                    <h3 class="mb-0"><span data-i18n="result.prediction_for">Prediction Results for</span> {{ plant_type }}</h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -19,14 +19,13 @@
                                          alt="Uploaded plant image"
                                          onerror="this.outerHTML='<div class=\'alert alert-warning\'>Image could not be loaded</div>'">
                                 {% else %}
-                                    <div class="alert alert-warning">Plant image not available</div>
+                                    <div class="alert alert-warning" data-i18n="result.no_image">Plant image not available</div>
                                 {% endif %}
-                                <!-- REMOVED CONFIDENCE BADGE -->
                             </div>
 
                             <!-- Example Disease Images Section -->
                             <div class="example-images-section mt-4">
-                                <h4>Example Images of {{ disease_name }}</h4>
+                                <h4><span data-i18n="result.example_images">Example Images of</span> {{ disease_name }}</h4>
                                 {% if example_images %}
                                     <div class="row row-cols-2 row-cols-md-3 g-3">
                                         {% for img in example_images %}
@@ -50,19 +49,19 @@
 
                         <div class="col-md-6">
                             <div class="diagnosis-info">
-                                <h4>{{ 'Utambuzi' if lang == 'sw' else 'Diagnosis' }}</h4>
-                                <p><strong>{{ 'Ugonjwa:' if lang == 'sw' else 'Disease:' }}</strong> {{ disease_name }}</p>
-                                <p><strong>{{ 'Jina la Kisayansi:' if lang == 'sw' else 'Scientific Name:' }}</strong> {{ scientific_name }}</p>
+                                <h4 data-i18n="result.diagnosis">Diagnosis</h4>
+                                <p><strong data-i18n="result.disease_label">Disease:</strong> {{ disease_name }}</p>
+                                <p><strong data-i18n="result.scientific_label">Scientific Name:</strong> {{ scientific_name }}</p>
                             </div>
 
                             <div class="treatment-info">
-                                <h4>{{ 'Matibabu Yanayopendekezwa' if lang == 'sw' else 'Recommended Treatment' }}</h4>
+                                <h4 data-i18n="result.treatment">Recommended Treatment</h4>
                                 <p>{{ treatment }}</p>
                             </div>
 
                             {% if agrovet_medications %}
                             <div class="agrovet-info">
-                                <h4><i class="bi bi-capsule"></i> {{ 'Dawa za Agrovet Zilizopendekezwa' if lang == 'sw' else 'Agrovet Medication Prescription' }}</h4>
+                                <h4><i class="bi bi-capsule"></i> <span data-i18n="result.agrovet">Agrovet Medication Prescription</span></h4>
                                 <ul class="list-group list-group-flush">
                                     {% for med in agrovet_medications %}
                                     <li class="list-group-item px-0">
@@ -74,21 +73,21 @@
                             {% endif %}
 
                             <div class="phytomedicine-info">
-                                <h4>{{ 'Tiba za Asili' if lang == 'sw' else 'Natural Remedies' }}</h4>
+                                <h4 data-i18n="result.natural_remedies">Natural Remedies</h4>
                                 <p>{{ phytomedicine }}</p>
                             </div>
 
                             <div class="prevention-info">
-                                <h4>{{ 'Njia za Kuzuia' if lang == 'sw' else 'Prevention Methods' }}</h4>
+                                <h4 data-i18n="result.prevention">Prevention Methods</h4>
                                 <p>{{ prevention }}</p>
                             </div>
 
                             <!-- Compact Prevention Calendar Section -->
                             <div class="prevention-calendar mt-4">
-                                <h4><i class="bi bi-calendar-check"></i> {{ 'Ratiba ya Kuzuia' if lang == 'sw' else 'Prevention Schedule' }}</h4>
+                                <h4><i class="bi bi-calendar-check"></i> <span data-i18n="result.prevention_schedule">Prevention Schedule</span></h4>
                                 <div id="compact-calendar"></div>
                                 <button class="btn btn-sm btn-outline-success mt-2" id="export-calendar">
-                                    <i class="bi bi-google"></i> {{ 'Hamisha kwenye Kalenda ya Google' if lang == 'sw' else 'Export to Google Calendar' }}
+                                    <i class="bi bi-google"></i> <span data-i18n="result.export_calendar">Export to Google Calendar</span>
                                 </button>
                             </div>
                         </div>
@@ -103,12 +102,12 @@
         <div class="col-md-12">
             <div class="community-forum mt-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4><i class="bi bi-people-fill"></i> Community Discussions</h4>
+                    <h4><i class="bi bi-people-fill"></i> <span data-i18n="forum.community_discussions">Community Discussions</span></h4>
                     <div class="county-filter">
                         <form method="GET" action="{{ url_for('predict') }}" class="d-inline">
                             <input type="hidden" name="plant_type" value="{{ plant_type }}">
                             <select name="county" class="form-select form-select-sm" onchange="this.form.submit()">
-                                <option value="">All Counties</option>
+                                <option value="" data-i18n="forum.all_counties">All Counties</option>
                                 {% for county in counties %}
                                 <option value="{{ county[0] }}" {% if request.args.get('county') == county[0] %}selected{% endif %}>
                                     {{ county[1] }}
@@ -158,14 +157,16 @@
                                 <form method="POST" action="{{ url_for('create_forum_comment') }}" enctype="multipart/form-data" class="mt-3">
                                     <input type="hidden" name="post_id" value="{{ post.id }}">
                                     <div class="mb-2">
-                                        <textarea name="content" class="form-control form-control-sm" placeholder="Add a comment..." required rows="2"></textarea>
+                                        <textarea name="content" class="form-control form-control-sm"
+                                                  data-i18n-placeholder="forum.add_comment_placeholder"
+                                                  placeholder="Add a comment..." required rows="2"></textarea>
                                     </div>
                                     <div class="d-flex">
                                         <div class="flex-grow-1 me-2">
                                             <input type="file" name="photo" class="form-control form-control-sm" accept="image/*">
-                                            <small class="text-muted">Optional photo (max 5MB)</small>
+                                            <small class="text-muted" data-i18n="forum.max_size">Optional photo (max 5MB)</small>
                                         </div>
-                                        <button type="submit" class="btn btn-sm btn-success">Post</button>
+                                        <button type="submit" class="btn btn-sm btn-success" data-i18n="forum.post_btn">Post</button>
                                     </div>
                                 </form>
                             </div>
@@ -174,10 +175,12 @@
                 </div>
                 {% else %}
                     <div class="alert alert-info">
-                        No discussions found {% if request.args.get('county') %}in {{ request.args.get('county') }}{% endif %} for {{ disease_name }}. Be the first to start one!
+                        <span data-i18n="forum.no_discussions">No discussions found</span>
+                        {% if request.args.get('county') %}in {{ request.args.get('county') }}{% endif %}
+                        for {{ disease_name }}.
                     </div>
                     <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#newPostModal">
-                        <i class="bi bi-plus-circle"></i> Start New Discussion
+                        <i class="bi bi-plus-circle"></i> <span data-i18n="forum.start_discussion">Start New Discussion</span>
                     </button>
                 {% endif %}
             </div>
@@ -189,10 +192,10 @@
         <div class="col-md-12">
             <div class="action-buttons">
                 <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> {{ 'Rudi Dashibodini' if lang == 'sw' else 'Back to Dashboard' }}
+                    <i class="bi bi-arrow-left"></i> <span data-i18n="result.back_dashboard">Back to Dashboard</span>
                 </a>
                 <a href="{{ url_for('select_plant') }}" class="btn btn-success">
-                    <i class="bi bi-plus-circle"></i> {{ 'Utabiri Mpya' if lang == 'sw' else 'New Prediction' }}
+                    <i class="bi bi-plus-circle"></i> <span data-i18n="result.new_prediction">New Prediction</span>
                 </a>
             </div>
         </div>
@@ -204,22 +207,22 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">New Discussion</h5>
+                <h5 class="modal-title" data-i18n="forum.new_discussion">New Discussion</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="{{ url_for('create_forum_post') }}" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="disease" value="{{ disease_name }}">
                     <div class="mb-3">
-                        <label class="form-label">Title</label>
+                        <label class="form-label" data-i18n="forum.title_label">Title</label>
                         <input type="text" name="title" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Content</label>
+                        <label class="form-label" data-i18n="forum.content_label">Content</label>
                         <textarea name="content" class="form-control" rows="3" required></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">County</label>
+                        <label class="form-label" data-i18n="forum.county_label">County</label>
                         <select name="county" class="form-select" required>
                             {% for county in counties %}
                             <option value="{{ county[0] }}" {% if county[0] == current_user.county %}selected{% endif %}>{{ county[1] }}</option>
@@ -227,13 +230,13 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Photos (Optional)</label>
+                        <label class="form-label" data-i18n="forum.photos_label">Photos (Optional)</label>
                         <input type="file" name="photos" class="form-control" multiple accept="image/*">
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-success">Post Discussion</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="forum.close">Close</button>
+                    <button type="submit" class="btn btn-success" data-i18n="forum.post_discussion">Post Discussion</button>
                 </div>
             </form>
         </div>
@@ -243,7 +246,6 @@
 <!-- Calendar Resources -->
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
 
 <style>
     .example-thumbnail {
@@ -270,10 +272,7 @@
         border-radius: 8px;
         padding: 12px 15px !important;
     }
-    .agrovet-info h4 {
-        color: #2e7d32;
-    }
-    /* Compact Calendar Styles */
+    .agrovet-info h4 { color: #2e7d32; }
     #compact-calendar {
         background-color: white;
         border-radius: 8px;
@@ -281,77 +280,28 @@
         box-shadow: 0 0 8px rgba(0,0,0,0.05);
         height: 250px;
     }
-    .fc .fc-toolbar-title {
-        font-size: 1rem;
-    }
-    .fc .fc-button {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.8rem;
-    }
-    .fc .fc-daygrid-day-frame {
-        min-height: 2rem;
-    }
-    .fc-event {
-        font-size: 0.7rem;
-        padding: 1px 3px;
-        margin: 1px 0;
-    }
-    .fc-daygrid-event-dot {
-        margin-right: 2px;
-    }
-    /* Enhanced Comments section styles */
-    .comments-section {
-        border-left: 3px solid #dee2e6;
-        padding-left: 10px;
-    }
-    .comment {
-        background-color: #f8f9fa;
-        padding: 8px 12px;
-        border-radius: 5px;
-        margin-bottom: 8px;
-    }
-    .county-badge {
-        background-color: #e9f7ef;
-        color: #2e8b57;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 0.75rem;
-        font-weight: normal;
-    }
-    .county-filter {
-        width: 200px;
-    }
-    .post-photos img {
-        transition: transform 0.2s;
-    }
-    .post-photos img:hover {
-        transform: scale(1.05);
-        cursor: pointer;
-    }
-    .forum-post {
-        transition: all 0.2s;
-    }
-    .forum-post:hover {
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .action-buttons {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-    }
+    .fc .fc-toolbar-title { font-size: 1rem; }
+    .fc .fc-button { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+    .fc .fc-daygrid-day-frame { min-height: 2rem; }
+    .fc-event { font-size: 0.7rem; padding: 1px 3px; margin: 1px 0; }
+    .fc-daygrid-event-dot { margin-right: 2px; }
+    .comments-section { border-left: 3px solid #dee2e6; padding-left: 10px; }
+    .comment { background-color: #f8f9fa; padding: 8px 12px; border-radius: 5px; margin-bottom: 8px; }
+    .county-badge { background-color: #e9f7ef; color: #2e8b57; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: normal; }
+    .county-filter { width: 200px; }
+    .post-photos img { transition: transform 0.2s; }
+    .post-photos img:hover { transform: scale(1.05); cursor: pointer; }
+    .forum-post { transition: all 0.2s; }
+    .forum-post:hover { box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .action-buttons { display: flex; gap: 10px; justify-content: center; }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize compact calendar
     const calendarEl = document.getElementById('compact-calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next',
-            center: 'title',
-            right: 'today'
-        },
+        headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
         height: 'parent',
         aspectRatio: 1.2,
         events: {{ prevention_events|tojson|safe }},
@@ -360,36 +310,23 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         dayMaxEventRows: 2,
         eventDisplay: 'auto',
-        views: {
-            dayGridMonth: {
-                dayMaxEventRows: 2
-            }
-        }
+        views: { dayGridMonth: { dayMaxEventRows: 2 } }
     });
     calendar.render();
 
-    // Google Calendar export
     document.getElementById('export-calendar').addEventListener('click', function() {
         const events = {{ prevention_events|tojson|safe }};
         events.forEach(event => {
             const startDate = new Date(event.start + 'T00:00:00').toISOString().replace(/-|:|\.\d+/g, '');
             const endDate = new Date(event.start + 'T00:30:00').toISOString().replace(/-|:|\.\d+/g, '');
-
             window.open(
                 `https://www.google.com/calendar/render?action=TEMPLATE` +
                 `&text=${encodeURIComponent(event.title)}` +
                 `&dates=${startDate}/${endDate}` +
                 `&details=Generated by Plant Disease Detection System` +
-                `&location=Your Garden` +
-                `&sf=true&output=xml`
+                `&location=Your Garden&sf=true&output=xml`
             );
         });
-    });
-
-    // Initialize Bootstrap tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 });
 </script>

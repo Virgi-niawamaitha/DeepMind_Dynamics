@@ -1,209 +1,163 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscription Status - PlantMD</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-    {% extends "base.html" %}
+{% extends "base.html" %}
 
-    {% block content %}
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-md-10 mx-auto">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-receipt me-2"></i>Subscription Status</h2>
-                    <a href="{{ url_for('payment') }}" class="btn btn-success">
-                        <i class="fas fa-plus me-1"></i>New Subscription
-                    </a>
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-receipt me-2"></i><span data-i18n="payment.subscription_status">Subscription Status</span></h2>
+                <a href="{{ url_for('payment') }}" class="btn btn-success">
+                    <i class="bi bi-plus me-1"></i><span data-i18n="payment.new_subscription">New Subscription</span>
+                </a>
+            </div>
+
+            <!-- Current Subscription Status -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0" data-i18n="payment.current_subscription">Current Subscription</h5>
                 </div>
+                <div class="card-body">
+                    {% if latest_payment and latest_payment.status == 'pending' %}
+                        <div class="alert alert-warning mb-3">
+                            <strong><span data-i18n="payment.stk_sent">STK push sent. Check your phone and approve the M-Pesa prompt to complete payment.</span></strong>
+                        </div>
+                    {% elif latest_payment and latest_payment.status == 'paid' %}
+                        <div class="alert alert-success mb-3">
+                            <strong><span data-i18n="payment.payment_confirmed">Payment confirmed. Your subscription is active.</span></strong>
+                        </div>
+                    {% endif %}
 
-                <!-- Current Subscription Status -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Current Subscription</h5>
-                    </div>
-                    <div class="card-body">
-                        {% if latest_payment and latest_payment.status == 'pending' %}
-                            <div class="alert alert-warning mb-3">
-                                <strong>STK push sent.</strong> Check your phone and approve the M-Pesa prompt to complete payment.
-                            </div>
-                        {% elif latest_payment and latest_payment.status == 'paid' %}
-                            <div class="alert alert-success mb-3">
-                                <strong>Payment confirmed.</strong> Your subscription is active.
-                            </div>
-                        {% endif %}
-
-                        {% if active_subscription %}
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h6 class="text-success">
-                                        <i class="fas fa-check-circle me-1"></i>Active Subscription
-                                    </h6>
-                                    <p><strong>Plan:</strong> {{ active_subscription.payment_type|title }}</p>
-                                    <p><strong>Amount:</strong> KSh {{ active_subscription.amount }}</p>
-                                    <p><strong>Status:</strong>
-                                        <span class="badge bg-success">{{ active_subscription.status }}</span>
-                                    </p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><strong>Expiry Date:</strong> {{ active_subscription.expiry_date.strftime('%Y-%m-%d') }}</p>
-                                    <p><strong>Days Remaining:</strong>
-                                        {{ (active_subscription.expiry_date - current_time).days }} days
-                                    </p>
-                                    <p><strong>Phone:</strong> {{ active_subscription.phone_number }}</p>
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="text-center py-4">
-                                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
-                                <h5 class="text-warning">No Active Subscription</h5>
-                                <p class="text-muted">You don't have an active subscription. Subscribe to access all features.</p>
-                                <a href="{{ url_for('payment') }}" class="btn btn-success">Subscribe Now</a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Payment History -->
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Payment History</h5>
-                    </div>
-                    <div class="card-body">
-                        {% if payments %}
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Plan</th>
-                                            <th>Amount</th>
-                                            <th>Status</th>
-                                            <th>Expiry</th>
-                                            <th>Phone</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for payment in payments %}
-                                            <tr>
-                                                <td>
-                                                    {% if payment.created_at %}
-                                                        {{ payment.created_at.strftime('%Y-%m-%d') }}
-                                                    {% else %}
-                                                        N/A
-                                                    {% endif %}
-                                                </td>
-                                                <td>{{ payment.payment_type|title }}</td>
-                                                <td>KSh {{ payment.amount }}</td>
-                                                <td>
-                                                    {% if payment.status == 'paid' %}
-                                                        <span class="badge bg-success">Paid</span>
-                                                    {% elif payment.status == 'pending' %}
-                                                        <span class="badge bg-warning">Pending</span>
-                                                    {% else %}
-                                                        <span class="badge bg-danger">{{ payment.status|title }}</span>
-                                                    {% endif %}
-                                                </td>
-                                                <td>
-                                                    {% if payment.expiry_date %}
-                                                        {{ payment.expiry_date.strftime('%Y-%m-%d') }}
-                                                    {% else %}
-                                                        N/A
-                                                    {% endif %}
-                                                </td>
-                                                <td>
-                                                    {{ payment.phone_number if payment.phone_number else 'N/A' }}
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <div class="text-center py-4">
-                                <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
-                                <h5 class="text-muted">No Payment History</h5>
-                                <p>You haven't made any payments yet.</p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Subscription Benefits -->
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Subscription Benefits</h5>
-                    </div>
-                    <div class="card-body">
+                    {% if active_subscription %}
                         <div class="row">
                             <div class="col-md-6">
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        Unlimited plant disease detection
-                                    </li>
-                                    <li class="list-group-item">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        Detailed treatment recommendations
-                                    </li>
-                                    <li class="list-group-item">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        Natural remedy suggestions
-                                    </li>
-                                </ul>
+                                <h6 class="text-success">
+                                    <i class="bi bi-check-circle me-1"></i><span data-i18n="payment.active_subscription">Active Subscription</span>
+                                </h6>
+                                <p><strong data-i18n="payment.plan_label">Plan:</strong> {{ active_subscription.payment_type|title }}</p>
+                                <p><strong data-i18n="payment.amount_label">Amount:</strong> KSh {{ active_subscription.amount }}</p>
+                                <p><strong data-i18n="payment.status_label">Status:</strong>
+                                    <span class="badge bg-success">{{ active_subscription.status }}</span>
+                                </p>
                             </div>
                             <div class="col-md-6">
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        Prevention schedules
-                                    </li>
-                                    <li class="list-group-item">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        Community forum access
-                                    </li>
-                                    <li class="list-group-item">
-                                        <i class="fas fa-check text-success me-2"></i>
-                                        County-specific alerts
-                                    </li>
-                                </ul>
+                                <p><strong data-i18n="payment.expiry_label">Expiry Date:</strong> {{ active_subscription.expiry_date.strftime('%Y-%m-%d') }}</p>
+                                <p><strong data-i18n="payment.days_remaining">Days Remaining:</strong>
+                                    {{ (active_subscription.expiry_date - current_time).days }} days
+                                </p>
+                                <p><strong data-i18n="payment.phone_label">Phone:</strong> {{ active_subscription.phone_number }}</p>
                             </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
+                            <h5 class="text-warning" data-i18n="payment.no_subscription">No Active Subscription</h5>
+                            <p class="text-muted" data-i18n="payment.no_subscription_desc">You don't have an active subscription. Subscribe to access all features.</p>
+                            <a href="{{ url_for('payment') }}" class="btn btn-success" data-i18n="payment.subscribe_now">Subscribe Now</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Payment History -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0" data-i18n="payment.payment_history">Payment History</h5>
+                </div>
+                <div class="card-body">
+                    {% if payments %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th data-i18n="payment.date_col">Date</th>
+                                        <th data-i18n="payment.plan_col">Plan</th>
+                                        <th data-i18n="payment.amount_col">Amount</th>
+                                        <th data-i18n="payment.status_col">Status</th>
+                                        <th data-i18n="payment.expiry_col">Expiry</th>
+                                        <th data-i18n="payment.phone_col">Phone</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for payment in payments %}
+                                        <tr>
+                                            <td>{{ payment.created_at.strftime('%Y-%m-%d') if payment.created_at else 'N/A' }}</td>
+                                            <td>{{ payment.payment_type|title }}</td>
+                                            <td>KSh {{ payment.amount }}</td>
+                                            <td>
+                                                {% if payment.status == 'paid' %}
+                                                    <span class="badge bg-success" data-i18n="payment.paid_badge">Paid</span>
+                                                {% elif payment.status == 'pending' %}
+                                                    <span class="badge bg-warning" data-i18n="payment.pending_badge">Pending</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">{{ payment.status|title }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ payment.expiry_date.strftime('%Y-%m-%d') if payment.expiry_date else 'N/A' }}</td>
+                                            <td>{{ payment.phone_number if payment.phone_number else 'N/A' }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-receipt fs-1 text-muted mb-3 d-block"></i>
+                            <h5 class="text-muted" data-i18n="payment.no_history">No Payment History</h5>
+                            <p data-i18n="payment.no_payments">You haven't made any payments yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Subscription Benefits -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0" data-i18n="payment.benefits_title">Subscription Benefits</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i><span data-i18n="payment.benefit1">Unlimited plant disease detection</span></li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i><span data-i18n="payment.benefit2">Detailed treatment recommendations</span></li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i><span data-i18n="payment.benefit3">Natural remedy suggestions</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i><span data-i18n="payment.benefit4">Prevention schedules</span></li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i><span data-i18n="payment.benefit5">Community forum access</span></li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i><span data-i18n="payment.benefit6">County-specific alerts</span></li>
+                            </ul>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Quick Links -->
-                <div class="mt-4 text-center">
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary me-2">
-                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+            <!-- Quick Links -->
+            <div class="mt-4 text-center">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left me-1"></i><span data-i18n="payment.back_dashboard">Back to Dashboard</span>
+                </a>
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-success me-2">
+                    <i class="bi bi-person me-1"></i><span data-i18n="payment.profile_link">Profile</span>
+                </a>
+                {% if not active_subscription %}
+                    <a href="{{ url_for('payment') }}" class="btn btn-success">
+                        <i class="bi bi-shield me-1"></i><span data-i18n="payment.get_subscription">Get Subscription</span>
                     </a>
-                    <a href="{{ url_for('profile') }}" class="btn btn-outline-success me-2">
-                        <i class="fas fa-user me-1"></i>Profile
-                    </a>
-                    {% if not active_subscription %}
-                        <a href="{{ url_for('payment') }}" class="btn btn-success">
-                            <i class="fas fa-shield-alt me-1"></i>Get Subscription
-                        </a>
-                    {% endif %}
-                </div>
-
-                {% if latest_payment and latest_payment.status == 'pending' %}
-                <div class="mt-3 text-center text-muted">
-                    <small>Checking payment status every 20 seconds...</small>
-                </div>
-                <script>
-                    setTimeout(function () {
-                        window.location.reload();
-                    }, 20000);
-                </script>
                 {% endif %}
             </div>
+
+            {% if latest_payment and latest_payment.status == 'pending' %}
+            <div class="mt-3 text-center text-muted">
+                <small data-i18n="payment.checking_status">Checking payment status every 20 seconds...</small>
+            </div>
+            <script>
+                setTimeout(function () { window.location.reload(); }, 20000);
+            </script>
+            {% endif %}
         </div>
     </div>
-    {% endblock %}
-</body>
-</html>
+</div>
+{% endblock %}

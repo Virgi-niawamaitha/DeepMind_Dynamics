@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" id="html-root">
+<html lang="en" id="html-root" data-server-lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -81,7 +81,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-success fixed-top">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="bi bi-flower2"></i> PlantDoc
+                <i class="bi bi-flower2"></i> <span data-i18n="nav.brand">PlantDoc</span>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
@@ -93,57 +93,62 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
                            href="{{ url_for('index') }}">
-                            <i class="bi bi-house"></i> Home
+                            <i class="bi bi-house"></i> <span data-i18n="nav.home">Home</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'forum' %}active{% endif %}"
                            href="{{ url_for('forum') }}">
-                            <i class="bi bi-people"></i> Community
+                            <i class="bi bi-people"></i> <span data-i18n="nav.community">Community</span>
                         </a>
                     </li>
                 </ul>
 
-                <!-- Language switcher -->
+                <!-- Language switcher (client-side, no page reload) -->
                 <ul class="navbar-nav me-2">
                     <li class="nav-item d-flex align-items-center">
                         <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('set_lang', lang='en') }}"
-                               class="btn btn-sm fw-bold {{ 'btn-light' if lang == 'en' else 'btn-outline-light' }}">EN</a>
-                            <a href="{{ url_for('set_lang', lang='sw') }}"
-                               class="btn btn-sm fw-bold {{ 'btn-light' if lang == 'sw' else 'btn-outline-light' }}">SW</a>
+                            <button type="button"
+                                    data-lang-btn="en"
+                                    onclick="PlantDocI18n.switchLang('en')"
+                                    class="btn btn-sm fw-bold {{ 'btn-light' if lang == 'en' else 'btn-outline-light' }}">English</button>
+                            <button type="button"
+                                    data-lang-btn="sw"
+                                    onclick="PlantDocI18n.switchLang('sw')"
+                                    class="btn btn-sm fw-bold {{ 'btn-light' if lang == 'sw' else 'btn-outline-light' }}">Kiswahili</button>
                         </div>
                     </li>
                 </ul>
+
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"
                                href="{{ url_for('dashboard') }}">
-                                <i class="bi bi-speedometer2"></i> Dashboard
+                                <i class="bi bi-speedometer2"></i> <span data-i18n="nav.dashboard">Dashboard</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'select_plant' %}active{% endif %}"
                                href="{{ url_for('select_plant') }}">
-                                <i class="bi bi-plus-circle"></i> New Scan
+                                <i class="bi bi-plus-circle"></i> <span data-i18n="nav.new_scan">New Scan</span>
                             </a>
                         </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" role="button"
                                data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-person-circle"></i> Account
+                                <i class="bi bi-person-circle"></i> <span data-i18n="nav.account">Account</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="{{ url_for('profile') }}">
-                                    <i class="bi bi-person"></i> Profile
+                                    <i class="bi bi-person"></i> <span data-i18n="nav.profile">Profile</span>
                                 </a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('payment_status') }}">
-                                    <i class="bi bi-credit-card"></i> Subscription
+                                    <i class="bi bi-credit-card"></i> <span data-i18n="nav.subscription">Subscription</span>
                                 </a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{{ url_for('logout') }}">
-                                    <i class="bi bi-box-arrow-right"></i> Logout
+                                    <i class="bi bi-box-arrow-right"></i> <span data-i18n="nav.logout">Logout</span>
                                 </a></li>
                             </ul>
                         </li>
@@ -151,13 +156,13 @@
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'login' %}active{% endif %}"
                                href="{{ url_for('login') }}">
-                                <i class="bi bi-box-arrow-in-right"></i> Login
+                                <i class="bi bi-box-arrow-in-right"></i> <span data-i18n="nav.login">Login</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'register' %}active{% endif %}"
                                href="{{ url_for('register') }}">
-                                <i class="bi bi-person-plus"></i> Register
+                                <i class="bi bi-person-plus"></i> <span data-i18n="nav.register">Register</span>
                             </a>
                         </li>
                     {% endif %}
@@ -182,25 +187,7 @@
             {% endwith %}
 
             <!-- Page Content -->
-            {% block content %}
-            <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <form method="POST" action="">
-                        {{ form.hidden_tag() }}
-                        <div class="mb-3">
-                            <label class="form-label">Select County</label>
-                            <select class="form-select" name="county" required>
-                                <option value="">-- Select your county --</option>
-                                {% for county in counties %}
-                                    <option value="{{ county }}">{{ county }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        {% block form_content %}{% endblock %}
-                    </form>
-                </div>
-            </div>
-            {% endblock %}
+            {% block content %}{% endblock %}
         </div>
     </main>
 
@@ -210,18 +197,18 @@
             <div class="row">
                 <div class="col-md-6">
                     <h5><i class="bi bi-flower2"></i> PlantDoc</h5>
-                    <p>Helping farmers detect plant diseases early for better crop yields.</p>
+                    <p data-i18n="footer.tagline">Helping farmers detect plant diseases early for better crop yields.</p>
                 </div>
                 <div class="col-md-3">
-                    <h5>Quick Links</h5>
+                    <h5 data-i18n="footer.quick_links">Quick Links</h5>
                     <ul class="list-unstyled">
-                        <li><a href="{{ url_for('index') }}" class="text-white">Home</a></li>
-                        <li><a href="{{ url_for('forum') }}" class="text-white">Community</a></li>
-                        <li><a href="{{ url_for('login') }}" class="text-white">Login</a></li>
+                        <li><a href="{{ url_for('index') }}" class="text-white" data-i18n="nav.home">Home</a></li>
+                        <li><a href="{{ url_for('forum') }}" class="text-white" data-i18n="nav.community">Community</a></li>
+                        <li><a href="{{ url_for('login') }}" class="text-white" data-i18n="nav.login">Login</a></li>
                     </ul>
                 </div>
                 <div class="col-md-3">
-                    <h5>Contact</h5>
+                    <h5 data-i18n="footer.contact">Contact</h5>
                     <ul class="list-unstyled">
                         <li><i class="bi bi-envelope"></i> support@plantdoc.com</li>
                         <li><i class="bi bi-telephone"></i> +254 759903964</li>
@@ -237,6 +224,8 @@
 
     <!-- JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+
     <script>
         // Initialize tooltips
         document.addEventListener('DOMContentLoaded', function() {
@@ -244,12 +233,6 @@
             tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
-
-            // Make county selection required
-            const countySelect = document.querySelector('select[name="county"]');
-            if (countySelect) {
-                countySelect.required = true;
-            }
         });
     </script>
 
