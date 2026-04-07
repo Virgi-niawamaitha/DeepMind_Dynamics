@@ -42,7 +42,7 @@
                                     <div class="alert alert-warning">
                                         <i class="bi bi-exclamation-triangle"></i>
                                         No example images found in:<br>
-                                        <code>static/disease pics/Plant_leave_diseases_dataset_without_augmentation/{{ disease_name }}</code>
+                                        <code>{{ disease_folder_display }}</code>
                                     </div>
                                 {% endif %}
                             </div>
@@ -70,6 +70,7 @@
                                     </li>
                                     {% endfor %}
                                 </ul>
+                                <small class="text-muted">Always follow label rates, pre-harvest intervals, and rotate active ingredients.</small>
                             </div>
                             {% endif %}
 
@@ -125,8 +126,8 @@
                         <div class="forum-post mb-4 p-3 border rounded">
                             <div class="post-header d-flex justify-content-between align-items-center mb-2">
                                 <div>
-                                    <strong>{{ post.author.name }}</strong>
-                                    <span class="county-badge ms-2">{{ post.author.county }} County</span>
+                                    <strong>{{ post.author.username }}</strong>
+                                    <span class="county-badge ms-2">{{ post.author.county.name if post.author.county else 'Unknown' }} County</span>
                                 </div>
                                 <small class="text-muted">{{ post.created_at.strftime('%b %d, %Y') }}</small>
                             </div>
@@ -138,8 +139,8 @@
                                 <div class="comment mb-3 p-2 bg-light rounded">
                                     <div class="comment-header d-flex justify-content-between align-items-center">
                                         <div>
-                                            <strong>{{ comment.user.name }}</strong>
-                                            <span class="county-badge ms-2">{{ comment.user.county }} County</span>
+                                            <strong>{{ comment.commenter.username }}</strong>
+                                            <span class="county-badge ms-2">{{ comment.commenter.county.name if comment.commenter.county else 'Unknown' }} County</span>
                                         </div>
                                         <small class="text-muted">{{ comment.created_at.strftime('%I:%M %p') }}</small>
                                     </div>
