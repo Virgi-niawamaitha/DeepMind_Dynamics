@@ -1422,10 +1422,21 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'webp'}
 
 def load_keras_model():
-    model_path = os.path.join(os.path.dirname(__file__), "trained_plant_model.keras")
+    # Search for the model file in order:
+    # 1. Same folder as app.py  (when running from inside final project/)
+    # 2. One level up           (when model sits at repo root in DeepMind_Dynamics)
+    base = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base, "trained_plant_model.keras"),
+        os.path.join(base, "..", "trained_plant_model.keras"),
+    ]
+    model_path = next((p for p in candidates if os.path.exists(p)), None)
     print("Loading Keras model… please wait, this may take 20–30 seconds")
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found at: {model_path}")
+    if model_path is None:
+        raise FileNotFoundError(
+            "Model file 'trained_plant_model.keras' not found. "
+            "Place it in the same folder as app.py or one level above it."
+        )
     model = load_model(model_path)
     print("Model loaded successfully!")
     return model
