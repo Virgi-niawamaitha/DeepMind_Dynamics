@@ -1,0 +1,72 @@
+<!-- templates/create_post.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">{{ t('create_post_title') }}</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('create_forum_post') }}" enctype="multipart/form-data">
+                        {{ form.hidden_tag() }}
+
+                        <div class="mb-3">
+                            {{ form.title.label(class="form-label") }}
+                            {{ form.title(class="form-control") }}
+                            {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.title.errors %}<span>{{ error }}</span>{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.content.label(class="form-label") }}
+                            {{ form.content(class="form-control", rows=5) }}
+                            {% if form.content.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.content.errors %}<span>{{ error }}</span>{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.disease.label(class="form-label") }}
+                                {{ form.disease(class="form-select") }}
+                                {% if form.disease.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.disease.errors %}<span>{{ error }}</span>{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                {{ form.county.label(class="form-label") }}
+                                {{ form.county(class="form-select") }}
+                                {% if form.county.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.county.errors %}<span>{{ error }}</span>{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-send"></i> {{ t('create_post_submit') }}
+                            </button>
+                            <a href="{{ url_for('forum') }}" class="btn btn-outline-secondary">
+                                {{ t('create_post_cancel') }}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ t('forum_title') }}</h2>
+        <a href="{{ url_for('create_post') }}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> {{ t('forum_new_post') }}
+        </a>
+    </div>
+
+    <!-- County Filter Card -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('forum') }}" class="row g-3 align-items-center">
+                <div class="col-md-5">
+                    <label for="county" class="form-label">{{ t('forum_filter_county') }}</label>
+                    <select name="county" class="form-select" id="county">
+                        <option value="">{{ t('forum_all_counties') }}</option>
+                        {% for county in counties %}
+                        <option value="{{ county.name }}" {% if request.args.get('county') == county.name %}selected{% endif %}>
+                            {{ county.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary mt-3 mt-md-0">
+                        <i class="bi bi-funnel"></i> {{ t('forum_apply') }}
+                    </button>
+                </div>
+                {% if request.args.get('county') %}
+                <div class="col-md-4">
+                    <a href="{{ url_for('forum') }}" class="btn btn-outline-secondary mt-3 mt-md-0">
+                        <i class="bi bi-x-circle"></i> {{ t('forum_clear_filter') }}
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Forum Posts Section -->
+    {% if posts %}
+        {% for post in posts %}
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-light">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="mb-0">{{ post.title }}</h5>
+                        <small class="text-muted">
+                            {{ t('forum_posted_by') }} <strong>{{ post.author.username }}</strong> {{ t('forum_from') }}
+                            <span class="badge bg-info">{{ post.county.name }} {{ t('forum_county') }}</span>
+                            &middot; {{ post.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+                        </small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                        <span class="badge bg-primary">{{ post.disease }}</span>
+                        {% if current_user.is_authenticated and post.user_id == current_user.id %}
+                        <form method="POST" action="{{ url_for('delete_forum_post', post_id=post.id) }}"
+                              onsubmit="return confirm('{{ t('forum_confirm_delete_post') }}')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <p class="card-text">{{ post.content }}</p>
+
+                <!-- Post Photos (if any) -->
+                {% if post.photos %}
+                <div class="post-photos mt-3">
+                    <div class="row g-2">
+                        {% for photo in post.photos %}
+                        <div class="col-4 col-md-3">
+                            <img src="{{ url_for('static', filename='uploads/' + photo.filename) }}"
+                                 class="img-thumbnail"
+                                 style="cursor: pointer;"
+                                 onclick="openModal('{{ url_for('static', filename='uploads/' + photo.filename) }}');" />
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Comments Section -->
+            <div class="card-footer bg-white">
+                <h6 class="mb-3">{{ t('forum_comments') }} ({{ post.comments|length }})</h6>
+
+                <!-- Comments list -->
+                {% set visible_comments = post.comments[:3] %}
+                {% set hidden_comments = post.comments[3:] %}
+
+                {% for comment in visible_comments %}
+                <div class="comment mb-3 ps-3 border-start">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>{{ comment.commenter.username }}</strong>
+                            {% if comment.commenter.county %}
+                            <small class="text-muted ms-1">· {{ comment.commenter.county.name }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-muted">{{ comment.created_at.strftime('%b %d %I:%M %p') }}</small>
+                            {% if current_user.is_authenticated and comment.user_id == current_user.id %}
+                            <form method="POST" action="{{ url_for('delete_forum_comment', comment_id=comment.id) }}"
+                                  onsubmit="return confirm('{{ t('forum_confirm_delete_comment') }}')">
+                                <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <p class="mb-1 mt-1">{{ comment.content }}</p>
+                    {% if comment.photo %}
+                    <div class="comment-photo mt-2">
+                        <img src="{{ url_for('static', filename='uploads/' + comment.photo) }}"
+                             class="img-thumbnail"
+                             style="max-height: 150px; cursor: pointer;"
+                             onclick="openModal('{{ url_for('static', filename='uploads/' + comment.photo) }}');" />
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <!-- Hidden comments (shown on expand) -->
+                {% if hidden_comments %}
+                <div id="more-comments-{{ post.id }}" class="d-none">
+                    {% for comment in hidden_comments %}
+                    <div class="comment mb-3 ps-3 border-start">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ comment.commenter.username }}</strong>
+                                {% if comment.commenter.county %}
+                                <small class="text-muted ms-1">· {{ comment.commenter.county.name }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <small class="text-muted">{{ comment.created_at.strftime('%b %d %I:%M %p') }}</small>
+                                {% if current_user.is_authenticated and comment.user_id == current_user.id %}
+                                <form method="POST" action="{{ url_for('delete_forum_comment', comment_id=comment.id) }}"
+                                      onsubmit="return confirm('{{ t('forum_confirm_delete_comment') }}')">
+                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <p class="mb-1 mt-1">{{ comment.content }}</p>
+                        {% if comment.photo %}
+                        <div class="comment-photo mt-2">
+                            <img src="{{ url_for('static', filename='uploads/' + comment.photo) }}"
+                                 class="img-thumbnail"
+                                 style="max-height: 150px; cursor: pointer;"
+                                 onclick="openModal('{{ url_for('static', filename='uploads/' + comment.photo) }}');" />
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="text-center mb-3">
+                    <a href="#" class="text-decoration-none"
+                       onclick="toggleComments('{{ post.id }}', this); return false;">
+                        {% if lang == 'sw' %}Tazama maoni yote {{ post.comments|length }}
+                        {% else %}View all {{ post.comments|length }} comments{% endif %}
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- Comment Form -->
+                {% if current_user.is_authenticated %}
+                <form method="POST" action="{{ url_for('create_forum_comment') }}" enctype="multipart/form-data" class="mt-3">
+                    <input type="hidden" name="post_id" value="{{ post.id }}" />
+                    <div class="mb-2">
+                        <textarea name="content" class="form-control"
+                                  placeholder="{{ t('forum_write_comment') }}"
+                                  rows="2" required></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1 me-2">
+                            <input type="file" name="photo" id="comment-photo-{{ post.id }}" class="d-none" accept="image/*" />
+                            <label for="comment-photo-{{ post.id }}" class="btn btn-sm btn-outline-secondary mb-0">
+                                <i class="bi bi-image"></i> {{ t('forum_add_photo') }}
+                            </label>
+                            <small class="text-muted ms-2">{{ t('forum_max_5mb') }}</small>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm">{{ t('forum_post_btn') }}</button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="alert alert-info py-2 mt-3 mb-0">
+                    <small>
+                        <a href="{{ url_for('login') }}">{% if lang == 'sw' %}Ingia{% else %}Log in{% endif %}</a>
+                        {% if lang == 'sw' %}ili kuacha maoni.{% else %}to leave a comment.{% endif %}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            {% if request.args.get('county') %}
+                {% if lang == 'sw' %}
+                    Hakuna machapisho yaliyopatikana kwa Kaunti ya {{ request.args.get('county') }}. Kuwa wa kwanza kuchapisha!
+                {% else %}
+                    No posts found for {{ request.args.get('county') }} County. Be the first to post!
+                {% endif %}
+            {% else %}
+                {{ t('forum_no_posts') }}
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <img src="" id="modalImage" class="img-fluid" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t('forum_close') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" />
+
+<style>
+    .comment { background-color: #f8f9fa; padding: 10px; border-radius: 5px; }
+    .post-photos img { height: 100px; width: 100%; object-fit: cover; transition: transform 0.2s; }
+    .post-photos img:hover { transform: scale(1.03); }
+</style>
+
+<script>
+    function openModal(imageSrc) {
+        var modal = new bootstrap.Modal(document.getElementById('imageModal'));
+        document.getElementById('modalImage').src = imageSrc;
+        modal.show();
+    }
+
+    function toggleComments(postId, link) {
+        var el = document.getElementById('more-comments-' + postId);
+        if (el.classList.contains('d-none')) {
+            el.classList.remove('d-none');
+            link.textContent = '{% if lang == "sw" %}Ficha maoni{% else %}Show less{% endif %}';
+        } else {
+            el.classList.add('d-none');
+            link.textContent = link.dataset.original || link.textContent;
+        }
+    }
+</script>
+{% endblock %}

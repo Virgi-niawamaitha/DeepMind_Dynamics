@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">{{ t('profile_title') }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            <div class="profile-image-container mb-3">
+                                <img src="{{ url_for('static', filename='images/default-profile.png') }}"
+                                     class="img-thumbnail rounded-circle"
+                                     alt="Profile Picture"
+                                     width="150"
+                                     height="150">
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-outline-secondary">{{ t('profile_change_photo') }}</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <h5 class="mb-3">{{ current_user.username }}</h5>
+                            <p class="text-muted mb-1"><i class="bi bi-envelope"></i> {{ current_user.email }}</p>
+                            <p class="text-muted"><i class="bi bi-geo-alt"></i>
+                                {% if current_user.county %}
+                                    {{ current_user.county.name if current_user.county.name else current_user.county }} {{ t('forum_county') }}
+                                {% else %}
+                                    {{ t('profile_county_not_set') }}
+                                {% endif %}
+                            </p>
+                            <p class="text-muted"><i class="bi bi-calendar-check"></i>
+                                {{ t('profile_member_since') }} {{ current_user.created_at.strftime('%B %Y') if current_user.created_at else t('profile_recently') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5 class="mb-3">{{ t('profile_update_county') }}</h5>
+                    <form method="POST" action="">
+                        {{ form.hidden_tag() }}
+                        <div class="form-group mb-3">
+                            {{ form.county.label(class="form-label fw-bold") }}
+                            {{ form.county(class="form-select" + (" is-invalid" if form.county.errors else "")) }}
+                            {% if form.county.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.county.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                {{ t('profile_county_help') }}
+                            </small>
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-save"></i> {{ t('profile_save_changes') }}
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <!-- Quick Stats Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ current_user.predictions|length if current_user.predictions else 0 }}</h5>
+                                    <p class="card-text">{{ t('profile_predictions_made') }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">{{ current_user.posts|length if current_user.posts else 0 }}</h5>
+                                    <p class="card-text">{{ t('profile_forum_posts') }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions Section -->
+                    <div class="account-actions mt-4">
+                        <h5 class="mb-3">{{ t('profile_quick_actions') }}</h5>
+                        <div class="d-flex flex-column flex-md-row gap-2">
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-speedometer2"></i> {{ t('nav_dashboard') }}
+                            </a>
+                            <a href="{{ url_for('select_plant') }}" class="btn btn-outline-success">
+                                <i class="bi bi-plus-circle"></i> {{ t('dashboard_new_prediction') }}
+                            </a>
+                            <a href="{{ url_for('forum') }}" class="btn btn-outline-info">
+                                <i class="bi bi-people"></i> {{ t('profile_community_forum') }}
+                            </a>
+                            <a href="{{ url_for('payment_status') }}" class="btn btn-outline-warning">
+                                <i class="bi bi-credit-card"></i> {{ t('nav_subscription') }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .profile-image-container { position: relative; }
+    .profile-image-container:hover img { opacity: 0.8; }
+    .card { border-radius: 10px; }
+    .card-header { border-radius: 10px 10px 0 0 !important; }
+    .form-select { padding: 10px; border-radius: 5px; }
+    .account-actions .btn { flex: 1; min-width: 160px; }
+</style>
+{% endblock %}

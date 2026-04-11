@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .prediction-card {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+    .prediction-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        color: inherit;
+        text-decoration: none;
+    }
+    .prediction-card .list-group-item {
+        border-left: 4px solid #198754;
+    }
+    .prediction-thumb {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+        flex-shrink: 0;
+    }
+    .view-badge {
+        font-size: 0.75rem;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+    .prediction-card:hover .view-badge {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ t('dashboard_welcome') }} {{ user.username }}</h2>
+    <a href="{{ url_for('select_plant') }}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> {{ t('dashboard_new_prediction') }}
+    </a>
+</div>
+
+<h3 class="mb-3">{{ t('dashboard_recent') }}</h3>
+
+{% if predictions %}
+    <div class="list-group gap-2">
+        {% for prediction in predictions %}
+        <a href="{{ url_for('view_prediction', prediction_id=prediction.id) }}"
+           class="prediction-card list-group-item list-group-item-action mb-2">
+            <div class="d-flex w-100 justify-content-between align-items-start">
+                <div class="d-flex align-items-center gap-3 flex-grow-1">
+
+                    {% if prediction.image_path %}
+                        {% set img_src = '/static/uploads/' + prediction.image_path
+                            if not prediction.image_path.startswith('http') and not prediction.image_path.startswith('/')
+                            else prediction.image_path %}
+                        <img src="{{ img_src }}"
+                             class="prediction-thumb"
+                             alt="Plant scan"
+                             onerror="this.style.display='none'">
+                    {% else %}
+                        <div class="prediction-thumb bg-light d-flex align-items-center justify-content-center rounded">
+                            <i class="bi bi-image text-muted fs-4"></i>
+                        </div>
+                    {% endif %}
+
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1">
+                            {{ prediction.plant_type|capitalize }}
+                            <span class="text-muted mx-1">—</span>
+                            {{ pred_display_names[prediction.id] }}
+                        </h5>
+
+                        <div class="treatment-info mt-1">
+                            <small>
+                                <strong>{{ t('dashboard_treatment_label') }}</strong>
+                                {{ prediction.treatment|truncate(120) if prediction.treatment else '—' }}
+                            </small>
+                        </div>
+
+                        {% if prediction.confidence %}
+                        <div class="mt-1">
+                            <small class="text-muted">
+                                <i class="bi bi-graph-up"></i>
+                                {{ t('confidence') }}: {{ (prediction.confidence * 100)|round(1) }}%
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="text-end ms-3 flex-shrink-0">
+                    <small class="text-muted d-block">
+                        {% if prediction.created_at %}
+                            {{ prediction.created_at.strftime('%b %d, %Y') }}
+                        {% endif %}
+                    </small>
+                    <span class="badge bg-success view-badge mt-1">
+                        {% if lang == 'sw' %}Tazama <i class="bi bi-arrow-right"></i>
+                        {% else %}View <i class="bi bi-arrow-right"></i>{% endif %}
+                    </span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">
+        {{ t('dashboard_no_predictions') }}
+        <a href="{{ url_for('select_plant') }}" class="alert-link">{{ t('dashboard_start_first') }}</a>.
+    </div>
+{% endif %}
+{% endblock %}

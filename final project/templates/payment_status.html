@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-receipt me-2"></i>{{ t('payment_status_title') }}</h2>
+                <a href="{{ url_for('payment') }}" class="btn btn-primary">
+                    <i class="bi bi-plus me-1"></i>{{ t('payment_status_new_sub') }}
+                </a>
+            </div>
+
+            <!-- Current Subscription Status -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{{ t('payment_status_current') }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_subscription %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-success">
+                                    <i class="bi bi-check-circle me-1"></i>{{ t('payment_status_active') }}
+                                </h6>
+                                <p><strong>{{ t('payment_status_plan') }}</strong> {{ active_subscription.payment_type|title }}</p>
+                                <p><strong>{{ t('payment_status_amount') }}</strong> KSh {{ active_subscription.amount }}</p>
+                                <p><strong>{{ t('payment_status_status') }}</strong>
+                                    <span class="badge bg-success">
+                                        {% if active_subscription.status == 'paid' %}{{ t('payment_status_paid') }}{% else %}{{ active_subscription.status|title }}{% endif %}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>{{ t('payment_status_expiry') }}</strong> {{ active_subscription.expiry_date.strftime('%Y-%m-%d') }}</p>
+                                <p><strong>{{ t('payment_status_days') }}</strong>
+                                    {{ (active_subscription.expiry_date - current_time).days }} {{ t('payment_status_days_unit') }}
+                                </p>
+                                <p><strong>{{ t('payment_status_phone') }}</strong> {{ active_subscription.phone_number }}</p>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
+                            <h5 class="text-warning">{{ t('payment_status_no_active') }}</h5>
+                            <p class="text-muted">{{ t('payment_status_no_active_desc') }}</p>
+                            <a href="{{ url_for('payment') }}" class="btn btn-primary">{{ t('payment_status_subscribe_now') }}</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Payment History -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{{ t('payment_status_history') }}</h5>
+                </div>
+                <div class="card-body">
+                    {% if payments %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>{{ t('payment_status_col_date') }}</th>
+                                        <th>{{ t('payment_status_col_plan') }}</th>
+                                        <th>{{ t('payment_status_col_amount') }}</th>
+                                        <th>{{ t('payment_status_col_status') }}</th>
+                                        <th>{{ t('payment_status_col_expiry') }}</th>
+                                        <th>{{ t('payment_status_col_phone') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for payment in payments %}
+                                        <tr>
+                                            <td>
+                                                {% if payment.created_at %}
+                                                    {{ payment.created_at.strftime('%Y-%m-%d') }}
+                                                {% else %}N/A{% endif %}
+                                            </td>
+                                            <td>{{ payment.payment_type|title }}</td>
+                                            <td>KSh {{ payment.amount }}</td>
+                                            <td>
+                                                {% if payment.status == 'paid' %}
+                                                    <span class="badge bg-success">{{ t('payment_status_paid') }}</span>
+                                                {% elif payment.status == 'pending' %}
+                                                    <span class="badge bg-warning">{{ t('payment_status_pending') }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">{{ payment.status|title }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if payment.expiry_date %}
+                                                    {{ payment.expiry_date.strftime('%Y-%m-%d') }}
+                                                {% else %}N/A{% endif %}
+                                            </td>
+                                            <td>{{ payment.phone_number if payment.phone_number else 'N/A' }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-receipt fs-1 text-muted mb-3 d-block"></i>
+                            <h5 class="text-muted">{{ t('payment_status_no_history') }}</h5>
+                            <p>{{ t('payment_status_no_history_desc') }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Subscription Benefits -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{{ t('payment_status_benefits') }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i>{{ t('payment_status_benefit1') }}</li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i>{{ t('payment_status_benefit2') }}</li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i>{{ t('payment_status_benefit3') }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i>{{ t('payment_status_benefit4') }}</li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i>{{ t('payment_status_benefit5') }}</li>
+                                <li class="list-group-item"><i class="bi bi-check text-success me-2"></i>{{ t('payment_status_benefit6') }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="mt-4 text-center">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left me-1"></i>{{ t('payment_status_back') }}
+                </a>
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-person me-1"></i>{{ t('nav_profile') }}
+                </a>
+                {% if not active_subscription %}
+                    <a href="{{ url_for('payment') }}" class="btn btn-primary">
+                        <i class="bi bi-shield-check me-1"></i>{{ t('payment_status_get_sub') }}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

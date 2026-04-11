@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+instance/
+.env
+*.db
+
+# Uploaded user images (runtime data, not source code)
+static/uploads/
+
+# Keras model binary (large file — keep separately)
+*.h5
+*.keras
+*.tflite
+
+# One-time migration scripts (already run)
+replace_disease_info.py
+
+# OS / IDE noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

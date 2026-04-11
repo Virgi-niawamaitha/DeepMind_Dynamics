@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0">{{ t('predict_upload_title') }} — {{ plant_type }}</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">{{ t('predict_select_image') }}</label>
+                        <input class="form-control" type="file" name="file" id="file" required>
+                        <div class="form-text">{{ t('predict_upload_hint') }}</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">{{ t('predict_btn') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Plant Disease Detection{% endblock %}</title>
+
+    <!-- CSS Links -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <style>
+        body {
+            padding-top: 56px;
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .main-content {
+            flex: 1;
+        }
+
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .nav-link {
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            margin: 0 2px;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255,255,255,0.2);
+            font-weight: 600;
+        }
+
+        .nav-link i {
+            margin-right: 5px;
+        }
+
+        footer {
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-flower2"></i> PlantDoc
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
+                           href="{{ url_for('index') }}">
+                            <i class="bi bi-house"></i> {{ t('nav_home') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'forum' %}active{% endif %}"
+                           href="{{ url_for('forum') }}">
+                            <i class="bi bi-people"></i> {{ t('nav_community') }}
+                        </a>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"
+                               href="{{ url_for('dashboard') }}">
+                                <i class="bi bi-speedometer2"></i> {{ t('nav_dashboard') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'select_plant' %}active{% endif %}"
+                               href="{{ url_for('select_plant') }}">
+                                <i class="bi bi-plus-circle"></i> {{ t('nav_new_scan') }}
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button"
+                               data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle"></i> {{ t('nav_account') }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('profile') }}">
+                                    <i class="bi bi-person"></i> {{ t('nav_profile') }}
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('payment_status') }}">
+                                    <i class="bi bi-credit-card"></i> {{ t('nav_subscription') }}
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                                    <i class="bi bi-box-arrow-right"></i> {{ t('nav_logout') }}
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'login' %}active{% endif %}"
+                               href="{{ url_for('login') }}">
+                                <i class="bi bi-box-arrow-in-right"></i> {{ t('nav_login') }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'register' %}active{% endif %}"
+                               href="{{ url_for('register') }}">
+                                <i class="bi bi-person-plus"></i> {{ t('nav_register') }}
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <!-- Language Switcher -->
+                    <li class="nav-item dropdown ms-2">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center gap-1" href="#"
+                           role="button" data-bs-toggle="dropdown" aria-expanded="false"
+                           title="{{ t('nav_language') }}">
+                            <i class="bi bi-translate"></i>
+                            <span class="d-none d-lg-inline">{{ 'EN' if lang == 'en' else 'SW' }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item lang-switch {% if lang == 'en' %}fw-bold{% endif %}"
+                                   href="{{ url_for('set_language', lang='en') }}?next={{ request.path }}"
+                                   data-lang-switch="en">
+                                    🇬🇧 English {% if lang == 'en' %}<i class="bi bi-check2 ms-1"></i>{% endif %}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item lang-switch {% if lang == 'sw' %}fw-bold{% endif %}"
+                                   href="{{ url_for('set_language', lang='sw') }}?next={{ request.path }}"
+                                   data-lang-switch="sw">
+                                    🇰🇪 Kiswahili {% if lang == 'sw' %}<i class="bi bi-check2 ms-1"></i>{% endif %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container mt-4">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Page Content -->
+            {% block content %}
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <form method="POST" action="">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            <label class="form-label">Select County</label>
+                            <select class="form-select" name="county" required>
+                                <option value="">-- Select your county --</option>
+                                {% for county in counties %}
+                                    <option value="{{ county }}">{{ county }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% block form_content %}{% endblock %}
+                    </form>
+                </div>
+            </div>
+            {% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="bi bi-flower2"></i> PlantDoc</h5>
+                    <p>{{ t('footer_tagline') }}</p>
+                </div>
+                <div class="col-md-3">
+                    <h5>{{ t('footer_quick_links') }}</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{{ url_for('index') }}" class="text-white">{{ t('nav_home') }}</a></li>
+                        <li><a href="{{ url_for('forum') }}" class="text-white">{{ t('nav_community') }}</a></li>
+                        <li><a href="{{ url_for('login') }}" class="text-white">{{ t('nav_login') }}</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>{{ t('footer_contact') }}</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-envelope"></i> support@plantdoc.com</li>
+                        <li><i class="bi bi-telephone"></i> +254 759903964</li>
+                    </ul>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <p class="mb-0">{{ t('footer_copyright') }}</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Make county selection required
+            const countySelect = document.querySelector('select[name="county"]');
+            if (countySelect) {
+                countySelect.required = true;
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+
+    <!-- i18n: localStorage language persistence -->
+    <script>
+    (function() {
+        var serverLang = document.documentElement.getAttribute('data-lang') || 'en';
+        var stored = localStorage.getItem('plantdoc_lang');
+        var synced = sessionStorage.getItem('plantdoc_lang_synced');
+
+        // On first visit or after Flask session expires, sync from localStorage
+        if (stored && stored !== serverLang && !synced && ['en', 'sw'].indexOf(stored) !== -1) {
+            sessionStorage.setItem('plantdoc_lang_synced', '1');
+            window.location.href = '/set_language/' + stored + '?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+            return;
+        }
+
+        // Always persist the current server language to localStorage
+        if (['en', 'sw'].indexOf(serverLang) !== -1) {
+            localStorage.setItem('plantdoc_lang', serverLang);
+        }
+
+        // Clicking a language link saves to localStorage immediately
+        document.querySelectorAll('[data-lang-switch]').forEach(function(el) {
+            el.addEventListener('click', function() {
+                var chosen = this.getAttribute('data-lang-switch');
+                localStorage.setItem('plantdoc_lang', chosen);
+                sessionStorage.removeItem('plantdoc_lang_synced');
+            });
+        });
+    })();
+    </script>
+</body>
+</html>
